@@ -1,10 +1,10 @@
 import csv
 from crontab import CronTab
-from mothboxServerConfig import MOTHBOX_PHOTOS_DIRECTORY_PATH
+from mothboxServerConfig import MOTHBOX_PHOTOS_DIRECTORY_PATH, MOTHBOX_RSYNC_LOG_PATH
 import os
 
 expandedPhotosPath = os.path.expanduser(MOTHBOX_PHOTOS_DIRECTORY_PATH)
-
+expandedLogPath = os.path.expanduser(MOTHBOX_RSYNC_LOG_PATH)
 
 """Load a CSV file containing mothbox information. Returns a list with one dict for each 
 mothbox; having the keys "name" and "hostOrIP."
@@ -15,7 +15,7 @@ def load_mothbox_list(filename='mothbox-list.csv'):
         return [row for row in reader]
 
 
-def schedule_jobs(startHour, endHour):
+def schedule_frequent_photo_syncjobs(startHour, endHour):
     # Load the list of mothboxes from the CSV file
     mothboxes = load_mothbox_list()
 
@@ -32,7 +32,7 @@ def schedule_jobs(startHour, endHour):
         hour_list = [h%24 for h in range(startHour, endHour if endHour > startHour else endHour + 24)]
 
         job = cron.new(
-            command=f'rsync -avz {mothbox["hostOrIP"]}:/home/pi/Desktop/Mothbox/photos {os.path.join(expandedPhotosPath, mothbox["name"])}/',
+            command=f'rsync -rv --times --remove-source-files --mkpath {mothbox["hostOrIP"]}:/home/pi/Desktop/Mothbox/photos {os.path.join(expandedPhotosPath, mothbox["name"])}/ >> {expandedLogPath} 2>&1',
             comment=f'Generated-Mothbox-Rsync job for {mothbox["name"]} at hour {hour}')
         job.hour.on(*hour_list)  # Schedule the job to run at the specified hour
         job.minute.every(1)  # Schedule the job to run every minute within the hour
@@ -40,7 +40,7 @@ def schedule_jobs(startHour, endHour):
         print(job)  # Print the job for debugging purposes
 
     # Write the cron jobs to the crontab
-    # cron.write()    
+    cron.write()    
 
 def remove_generated_jobs():
     # Create a new cron object for the current user
@@ -56,4 +56,7 @@ def remove_generated_jobs():
 
 
 if __name__ == "__main__":
-    schedule_jobs(18,6)
+    schedule_frequent_photo_syncjobs(18,6)
+
+
+# one option for removing empty directories: find . -type d -empty -delete
