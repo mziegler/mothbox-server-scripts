@@ -1,10 +1,10 @@
 import csv
 from crontab import CronTab
-from mothboxServerConfig import MOTHBOX_PHOTOS_DIRECTORY_PATH, MOTHBOX_RSYNC_LOG_PATH
+from mothboxServerConfig import NEW_UNPROCESSED_PHOTOS_DIRECTORY_PATH, RSYNC_LOG_PATH
 import os
 
-expandedPhotosPath = os.path.expanduser(MOTHBOX_PHOTOS_DIRECTORY_PATH)
-expandedLogPath = os.path.expanduser(MOTHBOX_RSYNC_LOG_PATH)
+expandedPhotosPath = os.path.expanduser(NEW_UNPROCESSED_PHOTOS_DIRECTORY_PATH)
+expandedLogPath = os.path.expanduser(RSYNC_LOG_PATH)
 
 """Load a CSV file containing mothbox information. Returns a list with one dict for each 
 mothbox; having the keys "deploymentName", "mothboxName" and "hostOrIP."
@@ -15,7 +15,7 @@ def load_mothbox_list(filename='mothbox-list.csv'):
         return [row for row in reader]
 
 
-def schedule_frequent_photo_syncjobs(startHour, endHour):
+def schedule_frequent_photo_sync_jobs(startHour, endHour):
     # Load the list of mothboxes from the CSV file
     mothboxes = load_mothbox_list()
 
@@ -57,7 +57,7 @@ def remove_generated_jobs():
 
 if __name__ == "__main__":
     remove_generated_jobs()
-    schedule_frequent_photo_syncjobs(18,6)
+    schedule_frequent_photo_sync_jobs(18,6)
 
 
 # TODO
