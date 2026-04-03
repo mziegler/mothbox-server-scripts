@@ -3,8 +3,6 @@ from crontab import CronTab
 from mothboxServerConfig import NEW_UNPROCESSED_PHOTOS_DIRECTORY_PATH, RSYNC_LOG_PATH
 import os
 
-expandedPhotosPath = os.path.expanduser(NEW_UNPROCESSED_PHOTOS_DIRECTORY_PATH)
-expandedLogPath = os.path.expanduser(RSYNC_LOG_PATH)
 
 """Load a CSV file containing mothbox information. Returns a list with one dict for each 
 mothbox; having the keys "deploymentName", "mothboxName" and "hostOrIP."
@@ -32,7 +30,7 @@ def schedule_frequent_photo_sync_jobs(startHour, endHour):
         hour_list = [h%24 for h in range(startHour, endHour if endHour > startHour else endHour + 24)]
 
         job = cron.new(
-            command=f'rsync -rv --times --remove-source-files --mkpath {mothbox["hostOrIP"]}:/home/pi/Desktop/Mothbox/photos/* {os.path.join(expandedPhotosPath, mothbox["deploymentName"])}/ >> {expandedLogPath} 2>&1',
+            command=f'rsync -rv --times --remove-source-files --mkpath {mothbox["hostOrIP"]}:/home/pi/Desktop/Mothbox/photos/* {os.path.join(NEW_UNPROCESSED_PHOTOS_DIRECTORY_PATH, mothbox["deploymentName"])}/ >> {RSYNC_LOG_PATH} 2>&1',
             comment=f'Generated-Mothbox-Rsync job for {mothbox["mothboxName"]}')
         job.hour.on(*hour_list)  # Schedule the job to run at the specified hour
         job.minute.every(1)  # Schedule the job to run every minute within the hour
