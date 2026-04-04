@@ -38,3 +38,10 @@ class SCRIPT_PATHS:
 
 DETECT_YOLO_MODEL_PATH = expanduser("~/Mothbot_Process/trained_models/yolo11m_4500_imgsz1600_b1_2024-01-18.pt")
 DETECT_YOLO_IMG_SIZE = 1600
+
+
+
+
+# Mark raw photos for deletion? 
+MARK_RAW_PHOTOS_FOR_DELETION = True
+KEEP_ONE_OUT_OF_EVERY_N_PHOTOS = 10 # Must not be zero or it won't mark any
