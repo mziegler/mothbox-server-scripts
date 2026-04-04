@@ -7,6 +7,7 @@ import os
 
 
 from mothboxServerConfig import NEW_UNPROCESSED_PHOTOS_DIRECTORY_PATH, PROCESSED_PHOTOS_DIRECTORY_PATH, IN_PROGRESS_PHOTOS_DIRECTORY_PATH
+import shutil
 
 inprogress_directory = os.path.expanduser(IN_PROGRESS_PHOTOS_DIRECTORY_PATH)
 unprocessed_directory = os.path.expanduser(NEW_UNPROCESSED_PHOTOS_DIRECTORY_PATH)
@@ -21,6 +22,9 @@ def get_inprogress_daily_folders():
     daily folder we are processing when the power goes out, so we only have to repeat one.
     """
 
+    # First, recursively delete any empty folders in the in-progress directory.
+    delete_empty_inprogress_folders()
+
     daily_folders = []
     for deployment_folder in os.listdir(inprogress_directory):
         deployment_folder_path = os.path.join(inprogress_directory, deployment_folder)
@@ -34,6 +38,10 @@ def get_inprogress_daily_folders():
 
 def get_unprocessed_daily_folders():
     """Return a list of daily folders in the unprocessed directory."""
+
+    # First, recursively delete any empty folders in the in-progress directory.
+    delete_empty_inprogress_folders()
+
     daily_folders = []
     for deployment_folder in os.listdir(unprocessed_directory):
         deployment_folder_path = os.path.join(unprocessed_directory, deployment_folder)
@@ -45,22 +53,49 @@ def get_unprocessed_daily_folders():
     return daily_folders
 
 
-def delete_empty_folders(folder_path):
-    """Recursively delete empty folders under folder_path (including folder_path if it becomes empty)."""
+def delete_empty_folders(folder_path=unprocessed_directory, is_base=True):
+    """Recursively delete empty folders under folder_path (but not folder_path itself if it becomes empty)."""
     if not os.path.isdir(folder_path):
         return False
     for name in os.listdir(folder_path):
         child_path = os.path.join(folder_path, name)
         if os.path.isdir(child_path):
-            delete_empty_folders(child_path)
-    if not os.listdir(folder_path):
+            delete_empty_folders(child_path, is_base=False)
+    if not os.listdir(folder_path) and not is_base:
         os.rmdir(folder_path)
         return True
     return False
 
 
+def delete_empty_unprocessed_folders():
+    """
+    Delete empty folders in the unprocessed directory.
+
+    This is useful because:
+    1) We might leave behind some empty deployment folders when moving
+    around the daily folders.
+    2) Rsync might leave some empty folders behind on the Mothboxes.
+
+    """
+    delete_empty_folders(unprocessed_directory)
+
+
+def delete_empty_inprogress_folders():
+    """Delete empty folders in the in-progress directory.
+    
+    This is useful because: We might leave behind some empty deployment folders when moving
+    around the daily folders.
+    """
+    delete_empty_folders(inprogress_directory)
+
+
 def move_daily_folder_to_inprogress(daily_folder_path):
-    """Move a daily folder from the unprocessed directory to the in-progress directory. This is used to keep track of which daily folder we are currently processing, so that if there is a power outage, we can resume processing that folder without having to repeat any already-processed folders."""
+    """Move a daily folder from the unprocessed directory to the in-progress directory. 
+    
+    This is used to keep track of which daily folder we are currently processing, so that if there is a power outage, we can resume processing that folder without having to repeat any already-processed folders.
+    
+    Returns the new path of the folder in the in-progress directory.
+    """
     if not os.path.isdir(daily_folder_path):
         raise ValueError(f"{daily_folder_path} is not a valid directory.")
     deployment_name = os.path.basename(os.path.dirname(daily_folder_path))
@@ -69,7 +104,7 @@ def move_daily_folder_to_inprogress(daily_folder_path):
     # Rename the daily folder name so they fit the format required by the Mothbox
     # data processing scripts, instead of folder names format copied directly from the Mothboxes.
     # For example, rename "agileCigua_2026-04-02" to just "2026-04-02".
-    if daily_folder_name.contains('_'):
+    if '_' in daily_folder_name:
         daily_folder_name=daily_folder_name.split('_')[-1]
 
     new_daily_folder_path = os.path.join(inprogress_directory, deployment_name, daily_folder_name)
@@ -79,13 +114,35 @@ def move_daily_folder_to_inprogress(daily_folder_path):
 
 
 def move_daily_folder_to_completed(daily_folder_path):
-    """Move a daily folder from the unprocessed directory to the completed directory. This is used to keep track of which daily folder we have completed processing."""
+    """Move a daily folder from the unprocessed directory to the completed directory. 
+    This is used to keep track of which daily folder we have completed processing.
+    
+    If there is already a folder for this date/deployment in the completed directory,
+    the folders will be merged.
+    -- In this case, this function returns the folder path of the merged folder
+       so we can re-run the perceptual clustering step.
+    -- (Otherwise, return false)
+    """
     if not os.path.isdir(daily_folder_path):
         raise ValueError(f"{daily_folder_path} is not a valid directory.")
     deployment_name = os.path.basename(os.path.dirname(daily_folder_path))
     daily_folder_name = os.path.basename(daily_folder_path)
 
     new_daily_folder_path = os.path.join(completed_directory, deployment_name, daily_folder_name)
-    os.makedirs(os.path.dirname(new_daily_folder_path), exist_ok=True)
-    os.rename(daily_folder_path, new_daily_folder_path)
-    return new_daily_folder_path
+    if os.path.exists(new_daily_folder_path):
+        for item in os.listdir(daily_folder_path):
+            s = os.path.join(daily_folder_path, item)
+            d = os.path.join(new_daily_folder_path, item)
+            shutil.move(s, d)
+        os.rmdir(daily_folder_path)
+        print("Folders were merged.")
+
+        # Return the path of the merged folder, so we can re-run the perceptual clustering step.
+        return new_daily_folder_path
+
+    else:
+        os.makedirs(os.path.dirname(new_daily_folder_path), exist_ok=True)
+        os.rename(daily_folder_path, new_daily_folder_path)
+    return False
+
+
