@@ -4,7 +4,7 @@ import sys
 
 import photoprocessing.folder_management as fm
 from crontab import CronTab
-from photoprocessing.run_pipeline import run_full_AI_pipeline, run_cluster
+from photoprocessing.run_AI_pipeline import run_full_AI_pipeline, run_cluster
 
 
 
