@@ -45,3 +45,4 @@ DETECT_YOLO_IMG_SIZE = 1600
 # Mark raw photos for deletion? 
 MARK_RAW_PHOTOS_FOR_DELETION = True
 KEEP_ONE_OUT_OF_EVERY_N_PHOTOS = 10 # Must not be zero or it won't mark any
+MATCHING_SUFFIXES_FOR_DELETION = {'.jpg', '.jpeg', '.png', '.dng'} # Only consider files with these suffixes for marking for deletion. This is mainly to avoid deleting the JSON files or other data.
