@@ -5,7 +5,6 @@ import sys
 import photoprocessing.folder_management as fm
 from crontab import CronTab
 from photoprocessing.run_AI_pipeline import run_full_AI_pipeline, run_cluster
-from mark_raw_photos_for_deletion import mark_raw_photos_for_deletion
 
 
 def ensure_single_instance(port=48283):
@@ -44,7 +43,6 @@ def start_or_resume_pipeline():
         for daily_folder in inprogress_daily_folders:
             print(f"Resuming pipeline for in-progress folder: {daily_folder}")
             run_full_AI_pipeline(daily_folder, overwrite_bot=False)
-            mark_raw_photos_for_deletion(daily_folder)
             fm.move_daily_folder_to_completed(daily_folder)
 
 
@@ -53,7 +51,6 @@ def start_or_resume_pipeline():
         print(f"Starting pipeline for new unprocessed folder: {daily_folder}")
         daily_folder = fm.move_daily_folder_to_inprogress(daily_folder)
         run_full_AI_pipeline(daily_folder, overwrite_bot=False)
-        mark_raw_photos_for_deletion(daily_folder)
 
         merged_folder = fm.move_daily_folder_to_completed(daily_folder)
         if merged_folder:

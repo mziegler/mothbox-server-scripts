@@ -9,9 +9,11 @@ from mothboxServerConfig import (
     AI_PIPELINE_ERROR_LOG,
     SPECIES_LIST_PATH,
     IDENTIFICATION_RANK,
-    METADATA_CSV_FILE_PATH
+    METADATA_CSV_FILE_PATH,
+    MARK_RAW_PHOTOS_FOR_DELETION,
 )
 
+from photoprocessing.mark_raw_photos_for_deletion import mark_raw_photos_for_deletion
 
 
 
@@ -124,3 +126,6 @@ def run_full_AI_pipeline(daily_folder, overwrite_bot=False, metadatafile=METADAT
     run_insertmetadata(daily_folder, metadatafile=metadatafile)
     run_cluster(daily_folder)
     run_insertEXIF(daily_folder)
+
+    if MARK_RAW_PHOTOS_FOR_DELETION:
+        mark_raw_photos_for_deletion(daily_folder)
