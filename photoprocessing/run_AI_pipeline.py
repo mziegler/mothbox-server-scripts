@@ -122,9 +122,9 @@ def run_insertEXIF(daily_folder):
 def run_full_AI_pipeline(daily_folder, overwrite_bot=False, metadatafile=METADATA_CSV_FILE_PATH):
     """Run the full pipeline for a given daily folder, with error logging."""
     run_detect(daily_folder, overwrite_bot=overwrite_bot)
+    run_cluster(daily_folder)
     run_id(daily_folder, overwrite_bot=overwrite_bot)
     run_insertmetadata(daily_folder, metadatafile=metadatafile)
-    run_cluster(daily_folder)
     run_insertEXIF(daily_folder)
 
     if MARK_RAW_PHOTOS_FOR_DELETION:
