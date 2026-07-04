@@ -1,0 +1,33 @@
+services:
+  pipeline:
+    build: .
+    # Use host networking so the container can reach Mothbox devices over Tailscale
+    # and connect to any locally-bound services without extra port mapping.
+    network_mode: host
+
+    # Container-level memory cap (cgroup). Protects the host if RLIMIT_AS in
+    # run_AI_pipeline.py fails to catch an allocation spike. Set slightly above
+    # the per-subprocess limit (12 GB) to leave headroom for the Python orchestrator.
+    mem_limit: 14g
+    memswap_limit: 14g  # disable swap for this container
+
+    # One-shot job — the systemd timer on the host manages the schedule.
+    restart: "no"
+
+    volumes:
+      # Working photo directories (ephemeral; files move to S3 after processing)
+      - /home/mb/mothbox-photos:/home/mb/mothbox-photos
+
+      # Deployment metadata and species list CSVs
+      - /home/mb/mothbox-metadata:/home/mb/mothbox-metadata
+      - /home/mb/species-lists:/home/mb/species-lists
+
+      # YOLO model weights — mounted read-only so they can be updated on the host
+      # without rebuilding the image
+      - /home/mb/Mothbot_Process/trained_models:/home/mb/Mothbot_Process/trained_models:ro
+
+      # rclone config with Hetzner S3 credentials
+      - /home/mb/.config/rclone:/home/mb/.config/rclone:ro
+
+      # Persistent log files
+      - /home/mb/logs:/home/mb/logs
