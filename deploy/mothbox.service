@@ -1,0 +1,22 @@
+[Unit]
+Description=Mothbox Photo Collection and AI Processing
+After=network-online.target docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=mb
+WorkingDirectory=/home/mb/mothbox-server-scripts
+
+# Start both the rsync and pipeline daemons via Docker Compose.
+# Both containers run indefinitely with restart: always, so this service
+# only needs to bring them up — Docker itself handles container restarts.
+ExecStart=docker compose up
+ExecStop=docker compose down
+
+# Restart this unit if docker compose itself exits unexpectedly.
+Restart=on-failure
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target

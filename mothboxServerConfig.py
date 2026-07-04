@@ -3,7 +3,7 @@ from os.path import join, expanduser
 
 
 # Directories for photos
-PROCESSED_PHOTOS_DIRECTORY_PATH = expanduser("~/mothbox-photos")
+PROCESSED_PHOTOS_DIRECTORY_PATH = expanduser("~/mothbox-photos/processed")
 NEW_UNPROCESSED_PHOTOS_DIRECTORY_PATH = expanduser("~/mothbox-photos/new-unprocessed")
 IN_PROGRESS_PHOTOS_DIRECTORY_PATH = expanduser("~/mothbox-photos/processing-in-progress")
 
@@ -56,3 +56,17 @@ S3_BUCKET = "manu-net-data"
 # If a step exceeds this, it is killed (returncode < 0) and the daily folder
 # is moved to S3 holding-crashing/ for later retry.
 PIPELINE_MEMORY_LIMIT_BYTES = 12 * 1024 ** 3  # 12 GB
+
+# How long the pipeline daemon sleeps between checks when there are no folders to process.
+PIPELINE_IDLE_SLEEP_SECONDS = 30 * 60  # 30 minutes
+
+# Rsync / photo-collection schedule
+# IANA timezone name for the deployment site. Used by rsync_daemon.py to determine
+# whether the current time is inside the nightly collection window.
+CAMERA_TIMEZONE = "America/Lima"   # UTC-5, no DST
+
+# Nightly collection window (local time at the deployment site).
+# Rsync runs every RSYNC_POLL_INTERVAL_SECONDS during [COLLECTION_START_HOUR, COLLECTION_END_HOUR).
+COLLECTION_START_HOUR = 18   # 6 PM
+COLLECTION_END_HOUR   = 6    # 6 AM (next morning)
+RSYNC_POLL_INTERVAL_SECONDS = 60
