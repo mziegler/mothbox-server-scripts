@@ -3,9 +3,9 @@ from os.path import join, expanduser
 
 
 # Directories for photos
-PROCESSED_PHOTOS_DIRECTORY_PATH = expanduser("~/Desktop/mothbox-photos")
-NEW_UNPROCESSED_PHOTOS_DIRECTORY_PATH = expanduser("~/Desktop/mothbox-photos/new-unprocessed")
-IN_PROGRESS_PHOTOS_DIRECTORY_PATH = expanduser("~/Desktop/mothbox-photos/processing-in-progress")
+PROCESSED_PHOTOS_DIRECTORY_PATH = expanduser("~/mothbox-photos")
+NEW_UNPROCESSED_PHOTOS_DIRECTORY_PATH = expanduser("~/mothbox-photos/new-unprocessed")
+IN_PROGRESS_PHOTOS_DIRECTORY_PATH = expanduser("~/mothbox-photos/processing-in-progress")
 
 # Metadata folder path
 # METADATA_CSV_FILE_PATH = expanduser("~/mothbox-metadata/Manu-Mothbox-Net_deployment-metadata.csv")
@@ -42,7 +42,17 @@ DETECT_YOLO_IMG_SIZE = 1600
 
 
 
-# Mark raw photos for deletion? 
+# Mark raw photos for deletion?
 MARK_RAW_PHOTOS_FOR_DELETION = True
 KEEP_ONE_OUT_OF_EVERY_N_PHOTOS = 10 # Must not be zero or it won't mark any
 MATCHING_SUFFIXES_FOR_DELETION = {'.jpg', '.jpeg', '.png', '.dng'} # Only consider files with these suffixes for marking for deletion. This is mainly to avoid deleting the JSON files or other data.
+
+
+# S3 / Object Storage (Hetzner)
+S3_REMOTE = "hetzner-s3"   # name of the rclone remote configured on this machine
+S3_BUCKET = "manu-net-data"
+
+# Maximum virtual memory each Mothbot_Process subprocess may use.
+# If a step exceeds this, it is killed (returncode < 0) and the daily folder
+# is moved to S3 holding-crashing/ for later retry.
+PIPELINE_MEMORY_LIMIT_BYTES = 12 * 1024 ** 3  # 12 GB
