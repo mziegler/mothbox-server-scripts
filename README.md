@@ -18,3 +18,43 @@ sudo cp /home/mb/mothbox-server-scripts/deploy/mothbox.service /etc/systemd/syst
 sudo systemctl daemon-reload
 sudo systemctl enable --now mothbox.service
 ```
+
+(or `sudo systemctl restart snap.docker.dockerd.service` if Docker is installed via Snap)
+
+
+
+## Monitoring output:
+1. Live output from both containers at once
+
+```
+cd /home/mb/mothbox-server-scripts
+docker compose logs -f
+```
+
+To monitor just one of the containers:
+
+```
+docker compose logs -f rsync
+docker compose logs -f pipeline
+```
+
+2. The log files on disk (persisted across container restarts, good for history)
+
+```
+# Rsync activity — which devices were contacted and what was transferred
+tail -f /home/mb/logs/mothbox-rsync.log
+
+# AI pipeline errors — non-zero exit codes and OOM crashes
+tail -f /home/mb/logs/mothbox-ai-pipeline-errors.log
+```
+
+3. systemd journal (useful if the containers fail to start at all, or docker compose up itself crashes)
+
+```
+journalctl -u mothbox.service -f
+```
+
+4. Container resource usage (memory is the most useful one given the OOM issue — watch the pipeline container approach the 14 GB limit)
+```
+docker stats
+```

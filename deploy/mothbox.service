@@ -1,20 +1,18 @@
 [Unit]
 Description=Mothbox Photo Collection and AI Processing
-After=network-online.target docker.service
-Requires=docker.service
+After=network-online.target snap.docker.dockerd.service
+Requires=snap.docker.dockerd.service
 
 [Service]
 Type=simple
 User=mb
 WorkingDirectory=/home/mb/mothbox-server-scripts
 
-# Start both the rsync and pipeline daemons via Docker Compose.
-# Both containers run indefinitely with restart: always, so this service
-# only needs to bring them up — Docker itself handles container restarts.
-ExecStart=docker compose up
-ExecStop=docker compose down
+# Use the full path to docker to avoid PATH issues in the systemd environment.
+# Run `which docker` on the server to confirm this path if it differs.
+ExecStart=/snap/bin/docker compose up
+ExecStop=/snap/bin/docker compose down
 
-# Restart this unit if docker compose itself exits unexpectedly.
 Restart=on-failure
 RestartSec=30
 
