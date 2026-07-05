@@ -6,6 +6,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     curl \
     make \
+    unzip \
     libgl1 \
     libglib2.0-0 \
     libexiv2-dev \
