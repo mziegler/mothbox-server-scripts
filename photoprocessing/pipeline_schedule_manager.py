@@ -1,13 +1,22 @@
+import datetime
 import os
 import socket
 import sys
 import time
+import zoneinfo
 from pathlib import Path
 
 import photoprocessing.folder_management as fm
-from mothboxServerConfig import PROCESSED_PHOTOS_DIRECTORY_PATH, PIPELINE_IDLE_SLEEP_SECONDS
+from mothboxServerConfig import (
+    PROCESSED_PHOTOS_DIRECTORY_PATH,
+    PIPELINE_IDLE_SLEEP_SECONDS,
+    CAMERA_TIMEZONE,
+    COLLECTION_END_HOUR,
+)
 from photoprocessing.run_AI_pipeline import run_full_AI_pipeline, run_cluster, PipelineCrashError
 from photoprocessing.sync_to_s3 import sync_and_cleanup, move_folder_to_crash_holding
+
+_TZ = zoneinfo.ZoneInfo(CAMERA_TIMEZONE)
 
 
 def ensure_single_instance(port=48283):
@@ -23,6 +32,34 @@ def ensure_single_instance(port=48283):
     except socket.error:
         print("Another instance is already running. Exiting.")
         sys.exit(1)
+
+
+def _folder_is_ready_to_process(unprocessed_folder: str) -> bool:
+    """Return True if the Mothbox has finished running for this folder's night.
+
+    Folder names are like "fluidRobin_2026-06-13", where the date is when the
+    collection STARTED (evening of June 13).  Because the Mothbox runs overnight
+    and turns off at COLLECTION_END_HOUR the following morning, this folder must
+    not be processed until COLLECTION_END_HOUR on June 14.
+
+    If the date cannot be parsed from the folder name, processing is allowed
+    immediately (fail-open).
+    """
+    folder_name = Path(unprocessed_folder).name
+    date_str = folder_name.split("_")[-1]  # e.g. "2026-06-13"
+    try:
+        start_date = datetime.date.fromisoformat(date_str)
+    except ValueError:
+        return True  # unparseable name — don't block
+
+    # Collection ends at COLLECTION_END_HOUR on the day after it started.
+    end_day = start_date + datetime.timedelta(days=1)
+    ready_at = datetime.datetime(
+        end_day.year, end_day.month, end_day.day,
+        COLLECTION_END_HOUR, 0, 0,
+        tzinfo=_TZ,
+    )
+    return datetime.datetime.now(tz=_TZ) >= ready_at
 
 
 def _completed_path_for(in_progress_folder: str) -> Path:
@@ -56,6 +93,12 @@ def _process_pending_folders() -> bool:
 
     # Process new unprocessed folders.
     for daily_folder in fm.get_unprocessed_daily_folders():
+        if not _folder_is_ready_to_process(daily_folder):
+            print(
+                f"Skipping {Path(daily_folder).name} — Mothbox still running for the night.",
+                flush=True,
+            )
+            continue
         print(f"Starting pipeline for new unprocessed folder: {daily_folder}", flush=True)
         daily_folder = fm.move_daily_folder_to_inprogress(daily_folder)
         try:
