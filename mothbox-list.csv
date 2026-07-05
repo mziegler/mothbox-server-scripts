@@ -1,3 +1,3 @@
 deploymentName,mothboxName,hostOrIP,comment
-Dataset_ManuNet_RestorationOlder_agileCigua_2026-03-30,agileCigua,agileCigua.local
-Dataset_ManuNet_RestorationNewer_fluidRobin_2026-03-30,fluidRobin,fluidRobin.local
+Dataset_ManuNet_RestorationOlder_agileCigua_2026-03-30,agileCigua,agileCigua
+Dataset_ManuNet_RestorationNewerC_fluidRobin_2026-05-04,fluidRobin,fluidRobin

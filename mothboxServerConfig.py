@@ -9,7 +9,7 @@ IN_PROGRESS_PHOTOS_DIRECTORY_PATH = expanduser("~/mothbox-photos/processing-in-p
 
 # Metadata folder path
 # METADATA_CSV_FILE_PATH = expanduser("~/mothbox-metadata/Manu-Mothbox-Net_deployment-metadata.csv")
-METADATA_CSV_FILE_PATH = expanduser("~/mothbox-metadata/Manu-Mothbox-Testing-Metadata.csv")
+METADATA_CSV_FILE_PATH = expanduser("~/mothbox-metadata/Manu-Mothbox_combined-metadata.csv")
 
 # Species list path
 SPECIES_LIST_PATH = expanduser("~/species-lists/GBIF_Manu_March2026_species_cleaned.csv")
