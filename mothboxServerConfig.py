@@ -21,8 +21,8 @@ IDENTIFICATION_RANK = 3
 
 
 # Logs
-RSYNC_LOG_PATH = expanduser("~/mothbox-rsync.log")
-AI_PIPELINE_ERROR_LOG = expanduser("~/mothbox-ai-pipeline-errors.log")
+RSYNC_LOG_PATH = expanduser("~/logs/mothbox-rsync.log")
+AI_PIPELINE_ERROR_LOG = expanduser("~/logs/mothbox-ai-pipeline-errors.log")
 
 
 # Paths for Mothbot AI processing scripts
