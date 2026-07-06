@@ -36,7 +36,7 @@ class SCRIPT_PATHS:
     MOTHBOT_CLUSTER_SCRIPT_PATH = expanduser(join(MOTHBOT_SCRIPTS_PATH, "pipeline/cluster.py"))
     MOTHBOT_INSERTEXIF_SCRIPT_PATH = expanduser(join(MOTHBOT_SCRIPTS_PATH, "pipeline/insert_exif.py"))
 
-DETECT_YOLO_MODEL_PATH = expanduser("~/Mothbot_Process/trained_models/yolo11m_4500_imgsz1600_b1_2024-01-18.pt")
+DETECT_YOLO_MODEL_PATH = expanduser("~/Mothbot_Process/trained_models/MBD-0-2.pt")
 DETECT_YOLO_IMG_SIZE = 1600
 
 
