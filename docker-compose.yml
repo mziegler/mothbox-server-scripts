@@ -7,7 +7,7 @@ x-common: &common
     - /home/mb/mothbox-photos:/home/mb/mothbox-photos
     - /home/mb/mothbox-metadata:/home/mb/mothbox-metadata
     - /home/mb/species-lists:/home/mb/species-lists
-    - /home/mb/Mothbot_Process/trained_models:/home/mb/Mothbot_Process/trained_models:ro
+    #- /home/mb/Mothbot_Process/trained_models:/home/mb/Mothbot_Process/trained_models:ro
     - /home/mb/.config/rclone:/home/mb/.config/rclone:ro
     - /home/mb/logs:/home/mb/logs
 
