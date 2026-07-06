@@ -4,6 +4,7 @@ Some utility functions to move around folders to keep track of images we are pro
 
 
 import os
+import subprocess
 
 
 from mothboxServerConfig import NEW_UNPROCESSED_PHOTOS_DIRECTORY_PATH, PROCESSED_PHOTOS_DIRECTORY_PATH, IN_PROGRESS_PHOTOS_DIRECTORY_PATH
@@ -39,8 +40,8 @@ def get_inprogress_daily_folders():
 def get_unprocessed_daily_folders():
     """Return a list of daily folders in the unprocessed directory."""
 
-    # First, recursively delete any empty folders in the in-progress directory.
-    delete_empty_inprogress_folders()
+    # First, recursively delete any empty folders in the unprocessed directory.
+    delete_empty_unprocessed_folders()
 
     daily_folders = []
     for deployment_folder in os.listdir(unprocessed_directory):
@@ -53,18 +54,11 @@ def get_unprocessed_daily_folders():
     return daily_folders
 
 
-def delete_empty_folders(folder_path=unprocessed_directory, is_base=True):
-    """Recursively delete empty folders under folder_path (but not folder_path itself if it becomes empty)."""
+def delete_empty_folders(folder_path=unprocessed_directory):
+    """Recursively delete empty folders under folder_path (but not folder_path itself)."""
     if not os.path.isdir(folder_path):
-        return False
-    for name in os.listdir(folder_path):
-        child_path = os.path.join(folder_path, name)
-        if os.path.isdir(child_path):
-            delete_empty_folders(child_path, is_base=False)
-    if not os.listdir(folder_path) and not is_base:
-        os.rmdir(folder_path)
-        return True
-    return False
+        return
+    subprocess.run(["rclone", "rmdirs", folder_path, "--leave-root"], check=True)
 
 
 def delete_empty_unprocessed_folders():
