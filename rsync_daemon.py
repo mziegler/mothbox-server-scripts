@@ -49,7 +49,10 @@ def rsync_device(mothbox: dict):
         mothbox["deploymentName"],
     ) + "/"
     os.makedirs(dst, exist_ok=True)
-    cmd = ["rsync", "-rv", "--times", "--remove-source-files", "--mkpath", src, dst]
+
+    # Option W: whole-file, faster over high-latency satellite connections
+    # Option m: don't copy empty directories 
+    cmd = ["rsync", "-rvmW", "--times", "--remove-source-files", "--mkpath", src, dst]
     with open(RSYNC_LOG_PATH, "a") as log:
         subprocess.run(cmd, stdout=log, stderr=log)
 
