@@ -51,6 +51,7 @@ MATCHING_SUFFIXES_FOR_DELETION = {'.jpg', '.jpeg', '.png', '.dng'} # Only consid
 # S3 / Object Storage (Hetzner)
 S3_REMOTE = "hetzner-s3"   # name of the rclone remote configured on this machine
 S3_BUCKET = "manu-mothbox"
+S3_KEY_PREFIX = "manu-net-deployments/" # base folder for data uploaded to the S3 bucket
 
 # Maximum virtual memory each Mothbot_Process subprocess may use.
 # If a step exceeds this, it is killed (returncode < 0) and the daily folder

@@ -13,6 +13,7 @@ from os.path import expanduser
 from mothboxServerConfig import (
     S3_REMOTE,
     S3_BUCKET,
+    S3_KEY_PREFIX,
     PROCESSED_PHOTOS_DIRECTORY_PATH,
     IN_PROGRESS_PHOTOS_DIRECTORY_PATH,
 )
@@ -28,7 +29,13 @@ def sync_and_cleanup(completed_folder_path: str):
     path = Path(completed_folder_path)
     base = Path(expanduser(PROCESSED_PHOTOS_DIRECTORY_PATH))
     rel = path.relative_to(base)
-    remote = f"{S3_REMOTE}:{S3_BUCKET}/{rel}"
+    
+    # Prepend optional key prefix to place objects under a specific directory
+    prefix = (S3_KEY_PREFIX or "").strip("/")
+    if prefix:
+        remote = f"{S3_REMOTE}:{S3_BUCKET}/{prefix}/{rel}"
+    else:
+        remote = f"{S3_REMOTE}:{S3_BUCKET}/{rel}"
 
     print(f"Moving {path} → {remote} (excluding MARKED-FOR-DELETION files)")
     subprocess.run(
