@@ -12,6 +12,7 @@ from mothboxServerConfig import (
     PIPELINE_IDLE_SLEEP_SECONDS,
     CAMERA_TIMEZONE,
     COLLECTION_END_HOUR,
+    FOLDER_MIN_IDLE_MINUTES,
 )
 from photoprocessing.run_AI_pipeline import run_full_AI_pipeline, run_cluster, PipelineCrashError
 from photoprocessing.sync_to_s3 import sync_and_cleanup, move_folder_to_crash_holding
@@ -59,7 +60,24 @@ def _folder_is_ready_to_process(unprocessed_folder: str) -> bool:
         COLLECTION_END_HOUR, 0, 0,
         tzinfo=_TZ,
     )
-    return datetime.datetime.now(tz=_TZ) >= ready_at
+    if datetime.datetime.now(tz=_TZ) < ready_at:
+        return False
+
+    # Guard against the race condition where the pipeline moves a folder while
+    # rsync is actively writing to it.  The folder's mtime is bumped every time
+    # rsync deposits a file; requiring a minimum idle period ensures we only
+    # process folders that rsync has finished with.
+    folder_mtime = Path(unprocessed_folder).stat().st_mtime
+    idle_seconds = time.time() - folder_mtime
+    if idle_seconds < FOLDER_MIN_IDLE_MINUTES * 60:
+        print(
+            f"  {Path(unprocessed_folder).name} was last modified "
+            f"{idle_seconds / 60:.1f} min ago — waiting for rsync to finish.",
+            flush=True,
+        )
+        return False
+
+    return True
 
 
 def _completed_path_for(in_progress_folder: str) -> Path:

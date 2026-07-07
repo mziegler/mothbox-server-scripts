@@ -71,3 +71,12 @@ CAMERA_TIMEZONE = "America/Lima"   # UTC-5, no DST
 COLLECTION_START_HOUR = 18   # 6 PM
 COLLECTION_END_HOUR   = 6    # 6 AM (next morning)
 RSYNC_POLL_INTERVAL_SECONDS = 60
+
+# How long a daily folder must be unmodified (no rsync writes) before the
+# pipeline is allowed to move it to in-progress.  This prevents the race
+# condition where the pipeline moves a folder while rsync is still writing
+# to it.  During the collection window rsync writes every 60 seconds, so
+# the folder is never idle.  After the Mothbox shuts off, photos stop
+# arriving and the folder goes quiet — the pipeline waits this long before
+# processing it.
+FOLDER_MIN_IDLE_MINUTES = 65
