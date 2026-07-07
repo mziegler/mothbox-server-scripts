@@ -4,11 +4,29 @@ Some utility functions to move around folders to keep track of images we are pro
 
 
 import os
+import shutil
 import subprocess
 
-
 from mothboxServerConfig import NEW_UNPROCESSED_PHOTOS_DIRECTORY_PATH, PROCESSED_PHOTOS_DIRECTORY_PATH, IN_PROGRESS_PHOTOS_DIRECTORY_PATH
-import shutil
+
+
+def _merge_directories(src: str, dst: str):
+    """Recursively move all contents of src into dst, merging subdirectories.
+
+    Unlike shutil.move, this handles the case where a subdirectory with the
+    same name already exists in dst (e.g. _processed/) by recursing into it
+    rather than trying to nest src inside dst.
+    """
+    os.makedirs(dst, exist_ok=True)
+    for item in os.listdir(src):
+        s = os.path.join(src, item)
+        d = os.path.join(dst, item)
+        if os.path.isdir(s):
+            _merge_directories(s, d)
+            os.rmdir(s)   # remove now-empty source subdirectory
+        else:
+            shutil.move(s, d)
+
 
 inprogress_directory = os.path.expanduser(IN_PROGRESS_PHOTOS_DIRECTORY_PATH)
 unprocessed_directory = os.path.expanduser(NEW_UNPROCESSED_PHOTOS_DIRECTORY_PATH)
@@ -124,11 +142,7 @@ def move_daily_folder_to_completed(daily_folder_path):
 
     new_daily_folder_path = os.path.join(completed_directory, deployment_name, daily_folder_name)
     if os.path.exists(new_daily_folder_path):
-        for item in os.listdir(daily_folder_path):
-            s = os.path.join(daily_folder_path, item)
-            d = os.path.join(new_daily_folder_path, item)
-            shutil.move(s, d)
-        os.rmdir(daily_folder_path)
+        _merge_directories(daily_folder_path, new_daily_folder_path)
         print("Folders were merged.")
 
         # Return the path of the merged folder, so we can re-run the perceptual clustering step.

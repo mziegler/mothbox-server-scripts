@@ -51,6 +51,13 @@ def sync_and_cleanup(completed_folder_path: str):
     for f in path.rglob("MARKED-FOR-DELETION.*"):
         f.unlink()
 
+    # Remove any empty directories left behind under the whole processed root.
+    # rclone move removes files but leaves empty directory skeletons; this cleans them up.
+    subprocess.run(
+        ["rclone", "rmdirs", str(base)],
+        check=True,
+    )
+
     print(f"Sync and cleanup complete for {path.name}")
 
 
