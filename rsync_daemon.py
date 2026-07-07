@@ -24,6 +24,7 @@ from mothboxServerConfig import (
     COLLECTION_END_HOUR,
     RSYNC_POLL_INTERVAL_SECONDS,
 )
+from livestream import generate_dashboard_html, update_latest_photo
 
 _TZ = zoneinfo.ZoneInfo(CAMERA_TIMEZONE)
 
@@ -51,15 +52,18 @@ def rsync_device(mothbox: dict):
     os.makedirs(dst, exist_ok=True)
 
     # Option W: whole-file, faster over high-latency satellite connections
-    # Option m: don't copy empty directories 
+    # Option m: don't copy empty directories
     cmd = ["rsync", "-rvmW", "--times", "--remove-source-files", "--mkpath", src, dst]
     with open(RSYNC_LOG_PATH, "a") as log:
         subprocess.run(cmd, stdout=log, stderr=log)
+
+    update_latest_photo(mothbox)
 
 
 def run():
     mothboxes = load_mothbox_list()
     print(f"Rsync daemon started — monitoring {len(mothboxes)} device(s).", flush=True)
+    generate_dashboard_html(mothboxes)
     while True:
         if in_collection_window():
             for mothbox in mothboxes:
