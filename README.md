@@ -10,7 +10,7 @@ Does the following things:
 ## To run:
 * Create a user called "mb"
 * Install rclone and run `rclone config` to set up the connection for photo storage
-* Make sure all Mothboxes are reachable on the network, (the easiest way I've found is by using TailScale). For each Mothbox, run `rclone config` to set up a remote (e.g. an SFTP remote named `mothbox-<mothboxName>`) that can reach `pi@<mothbox's host or IP>`, then record the device in mothbox-list.csv, including the rclone remote's name in the `rcloneRemote` column — `mothbox_photo_pull.py` uses that column to know where to pull photos from.
+* Make sure all Mothboxes are reachable on the network, (the easiest way I've found is by using TailScale). For each Mothbox, run `rclone config` to set up a remote (e.g. an SFTP remote named `mothbox-<mothboxName>`) that can reach `pi@<mothbox's host or IP>`, then record the device in mothbox-list.csv, including the rclone remote's name in the `rcloneRemote` column — `mothbox_photo_pull.py` uses that column to know where to pull photos from. Also fill in `friendlyName` (a human-readable display name shown on the public livestream page) and, optionally, `description` (a short blurb shown under the device's name).
 * Review the settings in mothboxServerConfig.py
 * Clone this repository into /home/mb/mothbox-server-scripts
 * Create `~/mothbox-photos/latest` owned by `mb` *before* the containers first
@@ -81,18 +81,58 @@ docker stats
 
 ## Public livestream
 
-`mothbox_photo_pull.py` copies each device's newest synced photo to
-`~/mothbox-photos/latest/<mothboxName>.jpg` after every pull (see
-`livestream.py`), and writes a static dashboard (`index.html`) listing all
-devices from `mothbox-list.csv`. The `livestream` service in
-`docker-compose.yml` serves that folder over plain HTTP on port 8080 (no
-image build required, stock `nginx:alpine`).
+The livestream page is split into a static frontend and a small piece of
+dynamic data, rather than a server-generated page:
+
+* **`livestream/static/`** — the frontend (`index.html`, `style.css`,
+  `app.js`), hand-written and committed to this repo. It's never generated
+  or touched by Python; edit these files directly to change the page's
+  look, the "About" text/links, or add images.
+* **`mothboxes.json`** — the only dynamic input, written by
+  `livestream.py` every `PHOTO_PULL_POLL_INTERVAL_SECONDS` (see
+  `mothbox_photo_pull.py`'s main loop). It lists each device's friendly
+  name, latest photo, and a computed schedule/outage status. `app.js`
+  fetches this file on load and re-fetches it every
+  `LIVESTREAM_REFRESH_SECONDS` to keep the page current without a full
+  page reload.
+* `mothbox_photo_pull.py` also still copies each device's newest synced
+  photo to `~/mothbox-photos/latest/<mothboxName>.jpg` after every pull
+  (see `livestream.py`).
+
+The `livestream` service in `docker-compose.yml` mounts both pieces into
+one nginx container (no image build required, stock `nginx:alpine`),
+serving `livestream/static/` at the docroot and
+`~/mothbox-photos/latest` (photos + `mothboxes.json`) under `/data`:
+
+```
+docroot (/)   <- ./livestream/static (index.html, style.css, app.js)
+/data/*.jpg   <- ~/mothbox-photos/latest/*.jpg
+/data/mothboxes.json <- ~/mothbox-photos/latest/mothboxes.json
+```
+
+`livestream/static/data/` is a committed empty directory (kept via
+`.gitkeep`) that exists purely so Docker has an existing mountpoint to
+bind the second volume onto — the first volume mounts `livestream/static`
+read-only, and Docker can't auto-create a mountpoint inside a read-only
+bind at container start. Don't delete this empty folder.
+
+**Mothbox on/off schedule**: each device's expected power state is
+computed from `MOTHBOX_ON_HOURS` in `mothboxServerConfig.py` — an
+explicit set of hours (0–23, local `CAMERA_TIMEZONE`) when the hardware
+is powered on. This defaults to the current alternating 6pm–5am Peru-time
+schedule, but is a plain editable set, so other deployments with a
+different schedule (continuous overnight run, a different offset, etc.)
+just need to edit that one line. Hours outside the set are treated as
+"off"; a device is only flagged with a possible power outage / technical
+problem warning if its latest photo is older than `LIVESTREAM_STALE_MINUTES`
+while it's expected to be on.
 
 **To turn this off entirely**, set `LIVESTREAM_ENABLED = False` in
 `mothboxServerConfig.py`. `mothbox_photo_pull.py` then stops updating latest
-photos, and the dashboard is replaced with a static "disabled" notice —
-so even if the `livestream` container is left running, it won't keep
-serving stale photos. No other files need to change.
+photos, and `mothboxes.json` is replaced with `{"enabled": false}`, which
+`app.js` renders as a "disabled" notice — so even if the `livestream`
+container is left running, it won't keep serving stale photos. No other
+files need to change.
 
 This is intentionally *not* meant to be exposed to the public directly —
 put a CDN cache in front of it so viewer traffic never hits this VM:
@@ -103,11 +143,13 @@ put a CDN cache in front of it so viewer traffic never hits this VM:
    `livestream.yourdomain.com`) pointing at the VM's IP, with the orange
    cloud (proxy) turned **on**.
 3. Cloudflare's free plan already caches `.jpg`/`.png` by file extension
-   and respects the `Cache-Control: max-age=60` header set in
-   `livestream/nginx.conf` — no paid plan needed. Optionally add a free
-   **Page Rule** (`livestream.yourdomain.com/*` → Cache Level: Cache
-   Everything, Edge Cache TTL: 1 minute) so the dashboard HTML is cached
-   too, not just the images.
+   and respects the per-path `Cache-Control` headers set in
+   `livestream/nginx.conf` (60s for photos, 30s for `mothboxes.json`, 5
+   minutes for the static `index.html`/`style.css`/`app.js`) — no paid
+   plan needed. Optionally add a free **Page Rule**
+   (`livestream.yourdomain.com/*` → Cache Level: Cache Everything) so
+   every path is cached at the edge, not just images by extension;
+   origin `Cache-Control` headers still govern each file's TTL.
 4. SSL: easiest is Cloudflare's **Flexible** SSL mode (visitors get
    HTTPS from Cloudflare; the VM keeps serving plain HTTP on 8080).
 

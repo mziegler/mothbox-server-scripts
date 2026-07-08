@@ -118,3 +118,16 @@ LATEST_PHOTO_EXTENSIONS = {'.jpg', '.jpeg', '.png'}
 # How often the dashboard reloads images and the cache TTL images are served with.
 # Keep in sync with the max-age set in livestream/nginx.conf.
 LIVESTREAM_REFRESH_SECONDS = 60
+
+# Hours (0-23, in CAMERA_TIMEZONE local time) during which the Mothbox hardware
+# is expected to be powered on. Edit this to match your own deployment's power
+# schedule -- any pattern works (alternating, continuous overnight, a different
+# offset, etc). Hours not in this set are simply "off", which also naturally
+# covers hours outside the nightly window entirely, with no special-casing.
+MOTHBOX_ON_HOURS = {18, 20, 22, 0, 2, 4}
+
+# How old (in minutes) a device's latest photo can be, while the device is
+# expected to be on, before the livestream dashboard flags a possible power
+# outage or technical problem. Generous slack for rclone retries and the
+# PHOTO_PULL_TRANSFER_TIMEOUT_SECONDS above before crying wolf.
+LIVESTREAM_STALE_MINUTES = 10

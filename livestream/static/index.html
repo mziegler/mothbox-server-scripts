@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mothbox Livestream</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>Mothbox Livestream</h1>
+  <p id="status-banner" class="status-banner hidden"></p>
+</header>
+
+<section class="about">
+  <h2>About this page</h2>
+  <p>
+    Mothboxes are solar-powered camera traps that photograph moths and other
+    insects overnight to support biodiversity monitoring. Each card below
+    shows the most recent photo received from one device, along with when it
+    was taken and whether the device is currently expected to be powered on.
+  </p>
+  <p id="schedule-explanation" class="schedule-explanation">Loading schedule…</p>
+  <p>
+    Learn more about the project: <a href="https://example.org/mothbox" target="_blank" rel="noopener">Mothbox project page</a>
+    &middot; <a href="https://example.org/manu-net" target="_blank" rel="noopener">Manu-Net deployment</a>
+  </p>
+</section>
+
+<main>
+  <div id="devices" class="grid"></div>
+</main>
+
+<div id="lightbox" class="lightbox hidden">
+  <button class="lightbox-close" type="button" aria-label="Close">&times;</button>
+  <img src="" alt="">
+</div>
+
+<script src="app.js" defer></script>
+</body>
+</html>

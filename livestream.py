@@ -1,14 +1,20 @@
 """Maintains the public "latest photo" livestream feed.
 
 Copies the newest synced photo for each Mothbox device to a stable,
-world-servable path, and generates a small static dashboard listing every
-device. Both are read by the 'livestream' nginx container defined in
-docker-compose.yml, which is meant to sit behind a CDN cache (e.g.
-Cloudflare) so public viewers never hit this VM directly.
+world-servable path, and writes a small mothboxes.json status file
+describing every device (display name, latest-photo timestamp, and
+computed schedule/outage status). Both are read by the 'livestream'
+nginx container defined in docker-compose.yml, which serves them
+alongside the static frontend in livestream/static/ (hand-written, not
+generated here) and sits behind a CDN cache (e.g. Cloudflare) so public
+viewers never hit this VM directly.
 """
 
+import datetime
+import json
 import os
 import shutil
+import zoneinfo
 
 from mothboxServerConfig import (
     NEW_UNPROCESSED_PHOTOS_DIRECTORY_PATH,
@@ -16,7 +22,12 @@ from mothboxServerConfig import (
     LATEST_PHOTO_EXTENSIONS,
     LIVESTREAM_REFRESH_SECONDS,
     LIVESTREAM_ENABLED,
+    LIVESTREAM_STALE_MINUTES,
+    MOTHBOX_ON_HOURS,
+    CAMERA_TIMEZONE,
 )
+
+_TZ = zoneinfo.ZoneInfo(CAMERA_TIMEZONE)
 
 
 def _latest_daily_folder(deployment_dir: str):
@@ -56,13 +67,98 @@ def _newest_photo_in_folder(folder: str):
     return os.path.join(folder, candidates[-1])
 
 
-def _write_html(html: str):
-    """Atomically write index.html so nginx never serves a half-written file."""
+def _find_newest_photo(mothbox: dict):
+    """Return the path of a device's most recently synced photo, or None."""
+    deployment_dir = os.path.join(NEW_UNPROCESSED_PHOTOS_DIRECTORY_PATH, mothbox["deploymentName"])
+    daily_folder = _latest_daily_folder(deployment_dir)
+    if daily_folder is None:
+        return None
+    return _newest_photo_in_folder(daily_folder)
+
+
+def _parse_photo_timestamp(photo_path: str):
+    """Extract the capture time embedded in a photo's filename.
+
+    Filenames look like "fluidRobin_2026_06_26__20_49_06_HDR0.jpg" -- splitting
+    the stem on "_" gives year/month/day at indices 1-3, an empty segment at
+    index 4 (from the double underscore), and hour/minute/second at indices
+    5-7. Same convention as photoprocessing/mark_raw_photos_for_deletion.py.
+    Returns a CAMERA_TIMEZONE-aware datetime, or None if the filename doesn't
+    match this pattern.
+    """
+    parts = os.path.splitext(os.path.basename(photo_path))[0].split('_')
+    if len(parts) < 8:
+        return None
+    try:
+        year, month, day = int(parts[1]), int(parts[2]), int(parts[3])
+        hour, minute, second = int(parts[5]), int(parts[6]), int(parts[7])
+        return datetime.datetime(year, month, day, hour, minute, second, tzinfo=_TZ)
+    except ValueError:
+        return None
+
+
+def _expected_state(now_local: datetime.datetime) -> str:
+    """Return "on" or "off" -- whether the Mothbox hardware is expected to be
+    powered on right now, per MOTHBOX_ON_HOURS. Hours outside the nightly
+    window are simply not in that set, so they naturally fall out as "off"
+    too, with no separate case needed.
+    """
+    return "on" if now_local.hour in MOTHBOX_ON_HOURS else "off"
+
+
+def _image_url(mothbox: dict, latest_dt):
+    """Return the relative image URL for a device's latest photo, cache-busted
+    with the photo's own capture time so browsers/CDN only re-fetch when a
+    genuinely new photo has arrived. None if no photo has been copied yet.
+    """
+    dest = os.path.join(LATEST_PHOTOS_DIRECTORY_PATH, f'{mothbox["mothboxName"]}.jpg')
+    if latest_dt is None or not os.path.exists(dest):
+        return None
+    return f'{mothbox["mothboxName"]}.jpg?t={int(latest_dt.timestamp())}'
+
+
+def _device_status(mothbox: dict, now_local: datetime.datetime) -> dict:
+    """Compute the full status payload for one device, combining its latest
+    photo's age with the expected on/off schedule state. A device that's
+    expected to be off is never flagged as a problem, however stale its
+    photo -- only a stale photo while expected ON indicates a possible
+    power outage or technical problem.
+    """
+    newest_path = _find_newest_photo(mothbox)
+    latest_dt = _parse_photo_timestamp(newest_path) if newest_path else None
+    expected_state = _expected_state(now_local)
+
+    if latest_dt is None:
+        status = "no-photo-yet"
+        age_minutes = None
+    else:
+        age_minutes = (now_local - latest_dt).total_seconds() / 60
+        if expected_state == "off":
+            status = "expected-off"
+        elif age_minutes > LIVESTREAM_STALE_MINUTES:
+            status = "possible-outage"
+        else:
+            status = "ok"
+
+    return {
+        "mothboxName": mothbox["mothboxName"],
+        "friendlyName": mothbox.get("friendlyName") or mothbox["mothboxName"],
+        "description": mothbox.get("description") or "",
+        "imageUrl": _image_url(mothbox, latest_dt),
+        "latestPhotoTimestamp": latest_dt.isoformat() if latest_dt else None,
+        "expectedState": expected_state,
+        "status": status,
+        "ageMinutes": round(age_minutes, 1) if age_minutes is not None else None,
+    }
+
+
+def _write_json_atomic(data: dict):
+    """Atomically write mothboxes.json so nginx never serves a half-written file."""
     os.makedirs(LATEST_PHOTOS_DIRECTORY_PATH, exist_ok=True)
-    dest = os.path.join(LATEST_PHOTOS_DIRECTORY_PATH, "index.html")
+    dest = os.path.join(LATEST_PHOTOS_DIRECTORY_PATH, "mothboxes.json")
     tmp_dest = dest + ".tmp"
     with open(tmp_dest, "w") as f:
-        f.write(html)
+        json.dump(data, f, indent=2)
     os.replace(tmp_dest, dest)
 
 
@@ -71,11 +167,7 @@ def update_latest_photo(mothbox: dict):
     if not LIVESTREAM_ENABLED:
         return
 
-    deployment_dir = os.path.join(NEW_UNPROCESSED_PHOTOS_DIRECTORY_PATH, mothbox["deploymentName"])
-    daily_folder = _latest_daily_folder(deployment_dir)
-    if daily_folder is None:
-        return
-    newest_path = _newest_photo_in_folder(daily_folder)
+    newest_path = _find_newest_photo(mothbox)
     if newest_path is None:
         return
 
@@ -86,56 +178,28 @@ def update_latest_photo(mothbox: dict):
     os.replace(tmp_dest, dest)  # atomic rename avoids ever serving a half-written file
 
 
-def generate_dashboard_html(mothboxes):
-    """Write a static dashboard listing every device's latest photo.
+def generate_dashboard_data(mothboxes):
+    """Write mothboxes.json, the sole dynamic input to the static livestream frontend.
 
-    If LIVESTREAM_ENABLED is False, writes a static "disabled" notice
-    instead, so a still-running nginx container doesn't keep serving
-    whatever photos/dashboard happened to be generated last.
+    If LIVESTREAM_ENABLED is False, writes a minimal disabled payload instead,
+    so a still-running nginx container doesn't keep serving whatever status
+    happened to be generated last -- the static frontend renders its own
+    "disabled" message when it sees enabled: false.
     """
     if not LIVESTREAM_ENABLED:
         print("LIVESTREAM_ENABLED is set to False, so writing a disabled notice instead of the dashboard.")
-        _write_html(
-            "<!doctype html><html><head><meta charset=\"utf-8\">"
-            "<title>Mothbox Livestream</title></head>"
-            "<body><h1>Livestream disabled</h1></body></html>"
-        )
+        _write_json_atomic({"enabled": False, "devices": []})
         return
 
-    cards = "\n".join(
-        f'''    <div class="device">
-      <h2>{mb["mothboxName"]}</h2>
-      <img src="{mb["mothboxName"]}.jpg" alt="{mb["mothboxName"]}">
-    </div>'''
-        for mb in mothboxes
-    )
-    html = f"""<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mothbox Livestream</title>
-<style>
-  body {{ font-family: sans-serif; background: #111; color: #eee; margin: 0; padding: 1.5rem; }}
-  h1 {{ text-align: center; }}
-  .grid {{ display: flex; flex-wrap: wrap; gap: 1.5rem; justify-content: center; }}
-  .device {{ text-align: center; }}
-  .device img {{ max-width: 480px; width: 100%; height: auto; border-radius: 4px; background: #222; }}
-</style>
-</head>
-<body>
-<h1>Mothbox Livestream</h1>
-<div class="grid">
-{cards}
-</div>
-<script>
-  // Images are cached at the edge/browser for LIVESTREAM_REFRESH_SECONDS;
-  // re-assigning the same src re-triggers the fetch once that expires.
-  setInterval(() => {{
-    document.querySelectorAll('.device img').forEach(img => {{ img.src = img.src; }});
-  }}, {LIVESTREAM_REFRESH_SECONDS * 1000});
-</script>
-</body>
-</html>
-"""
-    _write_html(html)
+    now_local = datetime.datetime.now(tz=_TZ)
+    data = {
+        "enabled": True,
+        "generatedAt": now_local.isoformat(),
+        "refreshSeconds": LIVESTREAM_REFRESH_SECONDS,
+        "schedule": {
+            "onHours": sorted(MOTHBOX_ON_HOURS),
+            "timezone": CAMERA_TIMEZONE,
+        },
+        "devices": [_device_status(mb, now_local) for mb in mothboxes],
+    }
+    _write_json_atomic(data)

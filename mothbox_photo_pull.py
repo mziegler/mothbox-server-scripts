@@ -3,7 +3,9 @@
 Pulls photos from every Mothbox device listed in mothbox-list.csv once per
 PHOTO_PULL_POLL_INTERVAL_SECONDS, but only during the nightly collection
 window defined in mothboxServerConfig.py.  Outside that window the loop
-sleeps and does nothing.
+skips pulling but still regenerates the livestream status data (see
+livestream.py) every iteration, so device schedule/outage status stays
+current around the clock.
 
 Transfers are done with rclone, via the per-device remote named in each
 row's "rcloneRemote" column (set up with `rclone config`). rclone performs
@@ -30,7 +32,7 @@ from mothboxServerConfig import (
     PHOTO_PULL_MIN_FILE_AGE,
     PHOTO_PULL_TRANSFER_TIMEOUT_SECONDS,
 )
-from livestream import generate_dashboard_html, update_latest_photo
+from livestream import generate_dashboard_data, update_latest_photo
 
 _TZ = zoneinfo.ZoneInfo(CAMERA_TIMEZONE)
 
@@ -87,11 +89,11 @@ def pull_device(mothbox: dict):
 def run():
     mothboxes = load_mothbox_list()
     print(f"Photo-pull daemon started — monitoring {len(mothboxes)} device(s).", flush=True)
-    generate_dashboard_html(mothboxes)
     while True:
         if in_collection_window():
             for mothbox in mothboxes:
                 pull_device(mothbox)
+        generate_dashboard_data(mothboxes)
         time.sleep(PHOTO_PULL_POLL_INTERVAL_SECONDS)
 
 

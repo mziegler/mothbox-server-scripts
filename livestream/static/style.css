@@ -1,0 +1,177 @@
+:root {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: #111;
+  color: #eee;
+  margin: 0;
+  padding: 1.5rem;
+  line-height: 1.5;
+}
+
+header {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+h1 {
+  margin: 0 0 0.5rem;
+}
+
+a {
+  color: #7dc4ff;
+}
+
+.status-banner {
+  background: #4a2b00;
+  color: #ffcf8b;
+  border-radius: 4px;
+  padding: 0.5rem 1rem;
+  display: inline-block;
+}
+
+.status-banner.hidden {
+  display: none;
+}
+
+.about {
+  max-width: 640px;
+  margin: 0 auto 2rem;
+  padding: 1rem 1.25rem;
+  background: #1a1a1a;
+  border-radius: 8px;
+}
+
+.about h2 {
+  margin-top: 0;
+  font-size: 1.1rem;
+}
+
+.schedule-explanation {
+  font-style: italic;
+  color: #cfcfcf;
+}
+
+.grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  justify-content: center;
+}
+
+.device-card {
+  text-align: center;
+  background: #1a1a1a;
+  border: 2px solid #333;
+  border-radius: 8px;
+  padding: 1rem;
+  width: 320px;
+}
+
+.device-card h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.15rem;
+}
+
+.device-card img {
+  max-width: 100%;
+  width: 100%;
+  height: auto;
+  border-radius: 4px;
+  background: #222;
+  cursor: zoom-in;
+  display: block;
+}
+
+.device-card .no-image {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 4px;
+  background: #222;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #777;
+}
+
+.badge {
+  display: inline-block;
+  margin-top: 0.75rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.status-ok { border-color: #2e7d32; }
+.status-ok .badge, .badge.status-ok { background: #1b3d1e; color: #8ee08f; }
+
+.status-possible-outage { border-color: #c62828; }
+.status-possible-outage .badge, .badge.status-possible-outage { background: #4a1414; color: #ff9b9b; }
+
+.status-expected-off { border-color: #3a3a3a; opacity: 0.75; }
+.status-expected-off .badge, .badge.status-expected-off { background: #2a2a2a; color: #aaa; }
+
+.status-no-photo-yet { border-color: #3a3a3a; border-style: dashed; }
+.status-no-photo-yet .badge, .badge.status-no-photo-yet { background: #2a2a2a; color: #aaa; }
+
+.timestamp {
+  margin: 0.6rem 0 0;
+  font-size: 0.85rem;
+  color: #bbb;
+}
+
+.description {
+  margin: 0.4rem 0 0;
+  font-size: 0.85rem;
+  color: #999;
+}
+
+.disabled-message {
+  font-size: 1.1rem;
+  color: #999;
+}
+
+.lightbox {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.lightbox.hidden {
+  display: none;
+}
+
+.lightbox img {
+  max-width: 95vw;
+  max-height: 95vh;
+  object-fit: contain;
+  cursor: zoom-out;
+}
+
+.lightbox-close {
+  position: absolute;
+  top: 1rem;
+  right: 1.5rem;
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 2.5rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+@media (max-width: 420px) {
+  body { padding: 1rem; }
+  .device-card { width: 100%; }
+}
