@@ -72,7 +72,6 @@ COLLECTION_START_HOUR = 18   # 6 PM
 COLLECTION_END_HOUR   = 6    # 6 AM (next morning)
 RSYNC_POLL_INTERVAL_SECONDS = 60
 
-<<<<<<< HEAD
 # How long a daily folder must be unmodified (no rsync writes) before the
 # pipeline is allowed to move it to in-progress.  This prevents the race
 # condition where the pipeline moves a folder while rsync is still writing
@@ -81,7 +80,7 @@ RSYNC_POLL_INTERVAL_SECONDS = 60
 # arriving and the folder goes quiet — the pipeline waits this long before
 # processing it.
 FOLDER_MIN_IDLE_MINUTES = 65
-=======
+
 
 # Public "latest photo" livestream feature.
 # After each rsync pull, rsync_daemon.py copies the newest synced photo for
@@ -94,4 +93,3 @@ LATEST_PHOTO_EXTENSIONS = {'.jpg', '.jpeg', '.png'}
 # How often the dashboard reloads images and the cache TTL images are served with.
 # Keep in sync with the max-age set in livestream/nginx.conf.
 LIVESTREAM_REFRESH_SECONDS = 60
->>>>>>> 8a0cb01 (starting work on livestreams)
