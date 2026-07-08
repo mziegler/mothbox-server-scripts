@@ -68,7 +68,7 @@ def pull_device(mothbox: dict):
         "--timeout", "5m",
         "--contimeout", "30s",
         "--min-age", PHOTO_PULL_MIN_FILE_AGE,
-        "-P",
+        "-v",
     ]
     with open(PHOTO_PULL_LOG_PATH, "a") as log:
         try:
