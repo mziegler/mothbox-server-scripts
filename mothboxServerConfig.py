@@ -73,6 +73,24 @@ COLLECTION_START_HOUR = 18   # 6 PM
 COLLECTION_END_HOUR   = 6    # 6 AM (next morning)
 PHOTO_PULL_POLL_INTERVAL_SECONDS = 60
 
+# Skip files on the Mothbox that were last modified more recently than this.
+# The camera writes each photo incrementally, so a file that's still being
+# written keeps growing after rclone has already stat'd it -- pulling it
+# mid-write produces a "corrupted on transfer: sizes differ" error. Kept
+# short so the livestream stays close to real-time; if it's ever too short
+# for a particular file, that's harmless -- rclone just logs the same error
+# and picks the file up on the next poll instead.
+PHOTO_PULL_MIN_FILE_AGE = "10s"
+
+# Hard ceiling on how long a single device's rclone pull may run per poll.
+# Mothboxes lose connectivity (or power off) on their own schedule, and when
+# that happens mid-transfer, rclone's own --timeout doesn't reliably notice --
+# an SFTP connection can sit at 0 B/s indefinitely without erroring. This
+# subprocess-level timeout is the real backstop. If it fires, the transfer is
+# simply retried on the next poll: rclone move never deletes a source file
+# until it's confirmed to have copied successfully, so nothing is lost.
+PHOTO_PULL_TRANSFER_TIMEOUT_SECONDS = 10 * 60  # 10 minutes
+
 # How long a daily folder must be unmodified (no photo-pull writes) before the
 # pipeline is allowed to move it to in-progress.  This prevents the race
 # condition where the pipeline moves a folder while the photo-pull daemon is

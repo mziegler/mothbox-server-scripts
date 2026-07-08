@@ -27,6 +27,8 @@ from mothboxServerConfig import (
     COLLECTION_START_HOUR,
     COLLECTION_END_HOUR,
     PHOTO_PULL_POLL_INTERVAL_SECONDS,
+    PHOTO_PULL_MIN_FILE_AGE,
+    PHOTO_PULL_TRANSFER_TIMEOUT_SECONDS,
 )
 from livestream import generate_dashboard_html, update_latest_photo
 
@@ -65,10 +67,19 @@ def pull_device(mothbox: dict):
         "--low-level-retries", "10",
         "--timeout", "5m",
         "--contimeout", "30s",
+        "--min-age", PHOTO_PULL_MIN_FILE_AGE,
         "-P",
     ]
     with open(PHOTO_PULL_LOG_PATH, "a") as log:
-        subprocess.run(cmd, stdout=log, stderr=log)
+        try:
+            subprocess.run(cmd, stdout=log, stderr=log, timeout=PHOTO_PULL_TRANSFER_TIMEOUT_SECONDS)
+        except subprocess.TimeoutExpired:
+            log.write(
+                f"\n[mothbox_photo_pull] Killed rclone after "
+                f"{PHOTO_PULL_TRANSFER_TIMEOUT_SECONDS}s -- {mothbox['mothboxName']} likely "
+                "went offline mid-transfer. Will retry next poll.\n"
+            )
+            log.flush()
 
     update_latest_photo(mothbox)
 
