@@ -107,14 +107,16 @@ def _expected_state(now_local: datetime.datetime) -> str:
 
 
 def _image_url(mothbox: dict, latest_dt):
-    """Return the relative image URL for a device's latest photo, cache-busted
-    with the photo's own capture time so browsers/CDN only re-fetch when a
-    genuinely new photo has arrived. None if no photo has been copied yet.
+    """Return the image URL for a device's latest photo, relative to the
+    static frontend's docroot (nginx serves this directory under /data --
+    see livestream/nginx.conf), cache-busted with the photo's own capture
+    time so browsers/CDN only re-fetch when a genuinely new photo has
+    arrived. None if no photo has been copied yet.
     """
     dest = os.path.join(LATEST_PHOTOS_DIRECTORY_PATH, f'{mothbox["mothboxName"]}.jpg')
     if latest_dt is None or not os.path.exists(dest):
         return None
-    return f'{mothbox["mothboxName"]}.jpg?t={int(latest_dt.timestamp())}'
+    return f'data/{mothbox["mothboxName"]}.jpg?t={int(latest_dt.timestamp())}'
 
 
 def _device_status(mothbox: dict, now_local: datetime.datetime) -> dict:
