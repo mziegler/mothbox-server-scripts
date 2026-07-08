@@ -74,6 +74,12 @@ devices from `mothbox-list.csv`. The `livestream` service in
 `docker-compose.yml` serves that folder over plain HTTP on port 8080 (no
 image build required, stock `nginx:alpine`).
 
+**To turn this off entirely**, set `LIVESTREAM_ENABLED = False` in
+`mothboxServerConfig.py`. `rsync_daemon.py` then stops updating latest
+photos, and the dashboard is replaced with a static "disabled" notice —
+so even if the `livestream` container is left running, it won't keep
+serving stale photos. No other files need to change.
+
 This is intentionally *not* meant to be exposed to the public directly —
 put a CDN cache in front of it so viewer traffic never hits this VM:
 

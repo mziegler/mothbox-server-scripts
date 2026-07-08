@@ -87,6 +87,12 @@ FOLDER_MIN_IDLE_MINUTES = 65
 # each device here (see livestream.py). Served publicly by the 'livestream'
 # nginx container (docker-compose.yml), meant to sit behind a CDN cache
 # (e.g. Cloudflare) so public traffic never hits this VM directly.
+#
+# Set to False to turn the feature off: livestream.py stops updating latest
+# photos/dashboard, and instead writes a static "disabled" notice, so the
+# nginx container (if still running) doesn't keep serving stale photos.
+LIVESTREAM_ENABLED = True
+
 LATEST_PHOTOS_DIRECTORY_PATH = expanduser("~/mothbox-photos/latest")
 LATEST_PHOTO_EXTENSIONS = {'.jpg', '.jpeg', '.png'}
 

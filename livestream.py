@@ -15,6 +15,7 @@ from mothboxServerConfig import (
     LATEST_PHOTOS_DIRECTORY_PATH,
     LATEST_PHOTO_EXTENSIONS,
     LIVESTREAM_REFRESH_SECONDS,
+    LIVESTREAM_ENABLED,
 )
 
 
@@ -55,8 +56,21 @@ def _newest_photo_in_folder(folder: str):
     return os.path.join(folder, candidates[-1])
 
 
+def _write_html(html: str):
+    """Atomically write index.html so nginx never serves a half-written file."""
+    os.makedirs(LATEST_PHOTOS_DIRECTORY_PATH, exist_ok=True)
+    dest = os.path.join(LATEST_PHOTOS_DIRECTORY_PATH, "index.html")
+    tmp_dest = dest + ".tmp"
+    with open(tmp_dest, "w") as f:
+        f.write(html)
+    os.replace(tmp_dest, dest)
+
+
 def update_latest_photo(mothbox: dict):
     """Copy the most recently synced photo for one device to a stable public path."""
+    if not LIVESTREAM_ENABLED:
+        return
+
     deployment_dir = os.path.join(NEW_UNPROCESSED_PHOTOS_DIRECTORY_PATH, mothbox["deploymentName"])
     daily_folder = _latest_daily_folder(deployment_dir)
     if daily_folder is None:
@@ -73,7 +87,21 @@ def update_latest_photo(mothbox: dict):
 
 
 def generate_dashboard_html(mothboxes):
-    """Write a static dashboard listing every device's latest photo."""
+    """Write a static dashboard listing every device's latest photo.
+
+    If LIVESTREAM_ENABLED is False, writes a static "disabled" notice
+    instead, so a still-running nginx container doesn't keep serving
+    whatever photos/dashboard happened to be generated last.
+    """
+    if not LIVESTREAM_ENABLED:
+        print("LIVESTREAM_ENABLED is set to False, so writing a disabled notice instead of the dashboard.")
+        _write_html(
+            "<!doctype html><html><head><meta charset=\"utf-8\">"
+            "<title>Mothbox Livestream</title></head>"
+            "<body><h1>Livestream disabled</h1></body></html>"
+        )
+        return
+
     cards = "\n".join(
         f'''    <div class="device">
       <h2>{mb["mothboxName"]}</h2>
@@ -110,9 +138,4 @@ def generate_dashboard_html(mothboxes):
 </body>
 </html>
 """
-    os.makedirs(LATEST_PHOTOS_DIRECTORY_PATH, exist_ok=True)
-    dest = os.path.join(LATEST_PHOTOS_DIRECTORY_PATH, "index.html")
-    tmp_dest = dest + ".tmp"
-    with open(tmp_dest, "w") as f:
-        f.write(html)
-    os.replace(tmp_dest, dest)
+    _write_html(html)
