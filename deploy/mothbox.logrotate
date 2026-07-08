@@ -1,0 +1,10 @@
+/home/mb/logs/mothbox-photo-pull.log
+/home/mb/logs/mothbox-ai-pipeline-errors.log
+{
+    weekly
+    size 10M
+    rotate 8
+    missingok
+    notifempty
+    compress
+}

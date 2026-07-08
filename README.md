@@ -27,6 +27,20 @@ sudo systemctl enable --now mothbox.service
 
 (or `sudo systemctl restart snap.docker.dockerd.service` if Docker is installed via Snap)
 
+* Install the logrotate config, so the log files in `~/logs` don't grow unbounded:
+
+```
+sudo cp /home/mb/mothbox-server-scripts/deploy/mothbox.logrotate /etc/logrotate.d/mothbox
+```
+
+  This rotates `mothbox-photo-pull.log` and `mothbox-ai-pipeline-errors.log`
+  weekly or once either passes 10 MB (whichever comes first), keeping 8
+  compressed backups of each. No app restart or signal is needed — both
+  `mothbox_photo_pull.py` and `run_AI_pipeline.py` reopen their log file by
+  path on every write, so they pick up the freshly-rotated file
+  automatically. Most Debian/Ubuntu systems already run `logrotate` daily
+  via cron/systemd timer, so this takes effect without any further setup.
+
 
 
 ## Monitoring output:
