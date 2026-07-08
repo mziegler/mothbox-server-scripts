@@ -10,7 +10,7 @@ Does the following things:
 ## To run:
 * Create a user called "mb"
 * Install rclone and run `rclone config` to set up the connection for photo storage
-* Make sure all Mothboxes are reachable on the network, (the easiest way I've found is by using TailScale). For each Mothbox, run `rclone config` to set up a remote (e.g. an SFTP remote named `mothbox-<mothboxName>`) that can reach `pi@<hostOrIP>`, then record the device in mothbox-list.csv, including the rclone remote's name in the `rcloneRemote` column — `mothbox_photo_pull.py` uses that column to know where to pull photos from.
+* Make sure all Mothboxes are reachable on the network, (the easiest way I've found is by using TailScale). For each Mothbox, run `rclone config` to set up a remote (e.g. an SFTP remote named `mothbox-<mothboxName>`) that can reach `pi@<mothbox's host or IP>`, then record the device in mothbox-list.csv, including the rclone remote's name in the `rcloneRemote` column — `mothbox_photo_pull.py` uses that column to know where to pull photos from.
 * Review the settings in mothboxServerConfig.py
 * Clone this repository into /home/mb/mothbox-server-scripts
 * Create `~/mothbox-photos/latest` owned by `mb` *before* the containers first
