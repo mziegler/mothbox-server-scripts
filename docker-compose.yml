@@ -15,9 +15,9 @@ x-common: &common
 services:
   # Pulls photos from Mothbox devices every minute during the nightly
   # collection window defined in mothboxServerConfig.py.
-  rsync:
+  photo-pull:
     <<: *common
-    entrypoint: ["python3", "rsync_daemon.py"]
+    entrypoint: ["python3", "mothbox_photo_pull.py"]
 
   # Processes incoming photo folders through the AI pipeline.
   # Sleeps when idle; drains backlogs continuously when work is available.
@@ -29,7 +29,7 @@ services:
     memswap_limit: 14g
     entrypoint: ["python3", "-m", "photoprocessing.pipeline_schedule_manager"]
 
-  # Serves each device's latest photo + dashboard (written by rsync_daemon.py
+  # Serves each device's latest photo + dashboard (written by mothbox_photo_pull.py
   # to mothbox-photos/latest) for the public livestream. Stock nginx image,
   # no build needed. Unlike the other services, this doesn't need Tailscale
   # access, so it stays off network_mode: host and only publishes its own

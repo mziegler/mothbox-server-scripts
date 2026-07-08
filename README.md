@@ -10,13 +10,13 @@ Does the following things:
 ## To run:
 * Create a user called "mb"
 * Install rclone and run `rclone config` to set up the connection for photo storage
-* Make sure all Mothboxes are reachable on the network, (the easiest way I've found is by using TailScale), and record them in mothbox-list.csv. Make sure that your server is properly set up to SSH into them; that the appropriate keys are set up on on both your server and the mothboxes. Edit your server's .ssh/config file so that the user on the mothboxes is "pi".
+* Make sure all Mothboxes are reachable on the network, (the easiest way I've found is by using TailScale). For each Mothbox, run `rclone config` to set up a remote (e.g. an SFTP remote named `mothbox-<mothboxName>`) that can reach `pi@<hostOrIP>`, then record the device in mothbox-list.csv, including the rclone remote's name in the `rcloneRemote` column — `mothbox_photo_pull.py` uses that column to know where to pull photos from.
 * Review the settings in mothboxServerConfig.py
 * Clone this repository into /home/mb/mothbox-server-scripts
 * Create `~/mothbox-photos/latest` owned by `mb` *before* the containers first
   start: `mkdir -p ~/mothbox-photos/latest`. The `livestream` container bind-mounts
   this path, and if it doesn't exist yet, Docker (running as root) auto-creates it
-  as root — which then blocks the `rsync` container's non-root `mb` user from
+  as root — which then blocks the `photo-pull` container's non-root `mb` user from
   writing the dashboard/photos into it.
 
 ```
@@ -40,15 +40,15 @@ docker compose logs -f
 To monitor just one of the containers:
 
 ```
-docker compose logs -f rsync
+docker compose logs -f photo-pull
 docker compose logs -f pipeline
 ```
 
 2. The log files on disk (persisted across container restarts, good for history)
 
 ```
-# Rsync activity — which devices were contacted and what was transferred
-tail -f /home/mb/logs/mothbox-rsync.log
+# Photo-pull activity — which devices were contacted and what was transferred
+tail -f /home/mb/logs/mothbox-photo-pull.log
 
 # AI pipeline errors — non-zero exit codes and OOM crashes
 tail -f /home/mb/logs/mothbox-ai-pipeline-errors.log
@@ -67,7 +67,7 @@ docker stats
 
 ## Public livestream
 
-`rsync_daemon.py` copies each device's newest synced photo to
+`mothbox_photo_pull.py` copies each device's newest synced photo to
 `~/mothbox-photos/latest/<mothboxName>.jpg` after every pull (see
 `livestream.py`), and writes a static dashboard (`index.html`) listing all
 devices from `mothbox-list.csv`. The `livestream` service in
@@ -75,7 +75,7 @@ devices from `mothbox-list.csv`. The `livestream` service in
 image build required, stock `nginx:alpine`).
 
 **To turn this off entirely**, set `LIVESTREAM_ENABLED = False` in
-`mothboxServerConfig.py`. `rsync_daemon.py` then stops updating latest
+`mothboxServerConfig.py`. `mothbox_photo_pull.py` then stops updating latest
 photos, and the dashboard is replaced with a static "disabled" notice —
 so even if the `livestream` container is left running, it won't keep
 serving stale photos. No other files need to change.

@@ -1,12 +1,16 @@
-"""Continuous rsync daemon.
+"""Continuous photo-pull daemon.
 
 Pulls photos from every Mothbox device listed in mothbox-list.csv once per
-RSYNC_POLL_INTERVAL_SECONDS, but only during the nightly collection window
-defined in mothboxServerConfig.py.  Outside that window the loop sleeps and
-does nothing.
+PHOTO_PULL_POLL_INTERVAL_SECONDS, but only during the nightly collection
+window defined in mothboxServerConfig.py.  Outside that window the loop
+sleeps and does nothing.
 
-Replaces the cron-based approach in scheduleRsync.py.  Run this as a
-long-running process (e.g. via docker-compose service 'rsync').
+Transfers are done with rclone, via the per-device remote named in each
+row's "rcloneRemote" column (set up with `rclone config`). rclone performs
+much better than rsync over high-latency/low-bandwidth links like Starlink.
+
+Run this as a long-running process (e.g. via docker-compose service
+'photo-pull').
 """
 
 import csv
@@ -18,11 +22,11 @@ import zoneinfo
 
 from mothboxServerConfig import (
     NEW_UNPROCESSED_PHOTOS_DIRECTORY_PATH,
-    RSYNC_LOG_PATH,
+    PHOTO_PULL_LOG_PATH,
     CAMERA_TIMEZONE,
     COLLECTION_START_HOUR,
     COLLECTION_END_HOUR,
-    RSYNC_POLL_INTERVAL_SECONDS,
+    PHOTO_PULL_POLL_INTERVAL_SECONDS,
 )
 from livestream import generate_dashboard_html, update_latest_photo
 
@@ -42,19 +46,28 @@ def in_collection_window() -> bool:
     return hour >= COLLECTION_START_HOUR or hour < COLLECTION_END_HOUR
 
 
-def rsync_device(mothbox: dict):
-    """Run a single rsync pull for one Mothbox device."""
-    src = f'{mothbox["hostOrIP"]}:/home/pi/Desktop/Mothbox/photos/*'
+def pull_device(mothbox: dict):
+    """Run a single rclone pull for one Mothbox device."""
+    src = f'{mothbox["rcloneRemote"]}:/home/pi/Desktop/Mothbox/photos'
     dst = os.path.join(
         NEW_UNPROCESSED_PHOTOS_DIRECTORY_PATH,
         mothbox["deploymentName"],
-    ) + "/"
+    )
     os.makedirs(dst, exist_ok=True)
 
-    # Option W: whole-file, faster over high-latency satellite connections
-    # Option m: don't copy empty directories
-    cmd = ["rsync", "-rvmW", "--times", "--remove-source-files", "--mkpath", src, dst]
-    with open(RSYNC_LOG_PATH, "a") as log:
+    cmd = [
+        "rclone", "move",
+        src,
+        dst,
+        "--transfers", "8",
+        "--checkers", "8",
+        "--retries", "5",
+        "--low-level-retries", "10",
+        "--timeout", "5m",
+        "--contimeout", "30s",
+        "-P",
+    ]
+    with open(PHOTO_PULL_LOG_PATH, "a") as log:
         subprocess.run(cmd, stdout=log, stderr=log)
 
     update_latest_photo(mothbox)
@@ -62,13 +75,13 @@ def rsync_device(mothbox: dict):
 
 def run():
     mothboxes = load_mothbox_list()
-    print(f"Rsync daemon started — monitoring {len(mothboxes)} device(s).", flush=True)
+    print(f"Photo-pull daemon started — monitoring {len(mothboxes)} device(s).", flush=True)
     generate_dashboard_html(mothboxes)
     while True:
         if in_collection_window():
             for mothbox in mothboxes:
-                rsync_device(mothbox)
-        time.sleep(RSYNC_POLL_INTERVAL_SECONDS)
+                pull_device(mothbox)
+        time.sleep(PHOTO_PULL_POLL_INTERVAL_SECONDS)
 
 
 if __name__ == "__main__":

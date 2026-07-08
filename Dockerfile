@@ -2,7 +2,6 @@ FROM python:3.11-slim
 
 # System dependencies — run as root
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    rsync \
     openssh-client \
     git \
     curl \

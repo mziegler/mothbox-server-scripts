@@ -21,7 +21,7 @@ IDENTIFICATION_RANK = 3
 
 
 # Logs
-RSYNC_LOG_PATH = expanduser("~/logs/mothbox-rsync.log")
+PHOTO_PULL_LOG_PATH = expanduser("~/logs/mothbox-photo-pull.log")
 AI_PIPELINE_ERROR_LOG = expanduser("~/logs/mothbox-ai-pipeline-errors.log")
 
 
@@ -61,30 +61,31 @@ PIPELINE_MEMORY_LIMIT_BYTES = 12 * 1024 ** 3  # 12 GB
 # How long the pipeline daemon sleeps between checks when there are no folders to process.
 PIPELINE_IDLE_SLEEP_SECONDS = 30 * 60  # 30 minutes
 
-# Rsync / photo-collection schedule
-# IANA timezone name for the deployment site. Used by rsync_daemon.py to determine
-# whether the current time is inside the nightly collection window.
+# Photo-pull schedule
+# IANA timezone name for the deployment site. Used by mothbox_photo_pull.py to
+# determine whether the current time is inside the nightly collection window.
 CAMERA_TIMEZONE = "America/Lima"   # UTC-5, no DST
 
 # Nightly collection window (local time at the deployment site).
-# Rsync runs every RSYNC_POLL_INTERVAL_SECONDS during [COLLECTION_START_HOUR, COLLECTION_END_HOUR).
+# The photo-pull daemon runs every PHOTO_PULL_POLL_INTERVAL_SECONDS during
+# [COLLECTION_START_HOUR, COLLECTION_END_HOUR).
 COLLECTION_START_HOUR = 18   # 6 PM
 COLLECTION_END_HOUR   = 6    # 6 AM (next morning)
-RSYNC_POLL_INTERVAL_SECONDS = 60
+PHOTO_PULL_POLL_INTERVAL_SECONDS = 60
 
-# How long a daily folder must be unmodified (no rsync writes) before the
+# How long a daily folder must be unmodified (no photo-pull writes) before the
 # pipeline is allowed to move it to in-progress.  This prevents the race
-# condition where the pipeline moves a folder while rsync is still writing
-# to it.  During the collection window rsync writes every 60 seconds, so
-# the folder is never idle.  After the Mothbox shuts off, photos stop
-# arriving and the folder goes quiet — the pipeline waits this long before
-# processing it.
+# condition where the pipeline moves a folder while the photo-pull daemon is
+# still writing to it.  During the collection window it writes every 60
+# seconds, so the folder is never idle.  After the Mothbox shuts off, photos
+# stop arriving and the folder goes quiet — the pipeline waits this long
+# before processing it.
 FOLDER_MIN_IDLE_MINUTES = 65
 
 
 # Public "latest photo" livestream feature.
-# After each rsync pull, rsync_daemon.py copies the newest synced photo for
-# each device here (see livestream.py). Served publicly by the 'livestream'
+# After each photo pull, mothbox_photo_pull.py copies the newest synced photo
+# for each device here (see livestream.py). Served publicly by the 'livestream'
 # nginx container (docker-compose.yml), meant to sit behind a CDN cache
 # (e.g. Cloudflare) so public traffic never hits this VM directly.
 #

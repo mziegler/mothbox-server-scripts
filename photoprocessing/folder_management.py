@@ -86,7 +86,7 @@ def delete_empty_unprocessed_folders():
     This is useful because:
     1) We might leave behind some empty deployment folders when moving
     around the daily folders.
-    2) Rsync might leave some empty folders behind on the Mothboxes.
+    2) The photo-pull daemon might leave some empty folders behind on the Mothboxes.
 
     """
     delete_empty_folders(unprocessed_directory)

@@ -64,15 +64,16 @@ def _folder_is_ready_to_process(unprocessed_folder: str) -> bool:
         return False
 
     # Guard against the race condition where the pipeline moves a folder while
-    # rsync is actively writing to it.  The folder's mtime is bumped every time
-    # rsync deposits a file; requiring a minimum idle period ensures we only
-    # process folders that rsync has finished with.
+    # the photo-pull daemon is actively writing to it.  The folder's mtime is
+    # bumped every time it deposits a file; requiring a minimum idle period
+    # ensures we only process folders that the photo-pull daemon has finished
+    # with.
     folder_mtime = Path(unprocessed_folder).stat().st_mtime
     idle_seconds = time.time() - folder_mtime
     if idle_seconds < FOLDER_MIN_IDLE_MINUTES * 60:
         print(
             f"  {Path(unprocessed_folder).name} was last modified "
-            f"{idle_seconds / 60:.1f} min ago — waiting for rsync to finish.",
+            f"{idle_seconds / 60:.1f} min ago — waiting for photo-pull to finish.",
             flush=True,
         )
         return False
