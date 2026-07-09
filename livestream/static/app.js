@@ -15,54 +15,12 @@ const STATUS_META = {
   "no-photo-yet": { label: "No photo received yet", className: "status-no-photo-yet" },
 };
 
-let scheduleRendered = false;
-
 async function fetchMothboxData() {
   const res = await fetch(DATA_URL, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`HTTP ${res.status} fetching ${DATA_URL}`);
   }
   return res.json();
-}
-
-function formatHourLabel(hour) {
-  const h12 = hour % 12 === 0 ? 12 : hour % 12;
-  const suffix = hour < 12 ? "am" : "pm";
-  return `${h12}${suffix}`;
-}
-
-function formatHourRanges(onHours) {
-  if (!onHours || !onHours.length) {
-    return "no scheduled on-hours configured";
-  }
-  const sorted = [...onHours].sort((a, b) => a - b);
-  const ranges = [];
-  let start = sorted[0];
-  let prev = sorted[0];
-  for (let i = 1; i < sorted.length; i++) {
-    if (sorted[i] === prev + 1) {
-      prev = sorted[i];
-      continue;
-    }
-    ranges.push([start, prev]);
-    start = sorted[i];
-    prev = sorted[i];
-  }
-  ranges.push([start, prev]);
-  return ranges
-    .map(([s, e]) => `${formatHourLabel(s)}–${formatHourLabel((e + 1) % 24)}`)
-    .join(", ");
-}
-
-function renderScheduleExplanation(schedule) {
-  const el = document.getElementById("schedule-explanation");
-  if (!el || !schedule) return;
-  const ranges = formatHourRanges(schedule.onHours);
-  el.textContent =
-    `Mothboxes are scheduled to power on during: ${ranges} (${schedule.timezone} local time). ` +
-    `Outside those windows, an "off" status is expected and not a problem -- ` +
-    `only a stale photo while a device is expected to be on may indicate a power ` +
-    `outage or technical issue.`;
 }
 
 function formatRelativeTime(isoString, now) {
@@ -206,10 +164,6 @@ function setStatusBanner(message) {
 async function refreshLoop() {
   try {
     const data = await fetchMothboxData();
-    if (!scheduleRendered && data.schedule) {
-      renderScheduleExplanation(data.schedule);
-      scheduleRendered = true;
-    }
     renderDevices(data);
     setStatusBanner(null);
   } catch (err) {
