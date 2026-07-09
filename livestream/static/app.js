@@ -78,19 +78,32 @@ function formatRelativeTime(isoString, now) {
   return diffDay === 1 ? "1 day ago" : `${diffDay} days ago`;
 }
 
-function formatAbsoluteTime(isoString) {
+function formatAbsoluteTime(isoString, timeZone) {
   if (!isoString) return "";
   const d = new Date(isoString);
-  return d.toLocaleString(undefined, {
+  const options = {
     weekday: "short",
     month: "short",
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
-  });
+    // Appends the zone's own abbreviation/offset (e.g. "GMT-5") so the two
+    // times below are self-explanatory without hardcoding a region name --
+    // MOTHBOX_ON_HOURS (and so the Mothbox's timezone) is configurable per
+    // deployment, and the viewer's own timezone is obviously unknown ahead
+    // of time.
+    timeZoneName: "short",
+  };
+  if (timeZone) options.timeZone = timeZone;
+  // Omitting timeZone makes toLocaleString use the browser's own local zone.
+  return d.toLocaleString(undefined, options);
 }
 
-function buildDeviceCard(device) {
+function buildMothboxTimeText(isoString, timeZone, now) {
+  return `Latest photo: ${formatAbsoluteTime(isoString, timeZone)} (${formatRelativeTime(isoString, now)})`;
+}
+
+function buildDeviceCard(device, mothboxTimeZone) {
   const meta = STATUS_META[device.status] || { label: device.status, className: "" };
 
   const card = document.createElement("div");
@@ -122,13 +135,19 @@ function buildDeviceCard(device) {
   timestamp.className = "timestamp";
   if (device.latestPhotoTimestamp) {
     timestamp.dataset.timestamp = device.latestPhotoTimestamp;
-    timestamp.textContent =
-      `Latest photo: ${formatAbsoluteTime(device.latestPhotoTimestamp)} ` +
-      `(${formatRelativeTime(device.latestPhotoTimestamp, new Date())})`;
+    timestamp.dataset.tz = mothboxTimeZone || "";
+    timestamp.textContent = buildMothboxTimeText(device.latestPhotoTimestamp, mothboxTimeZone, new Date());
   } else {
     timestamp.textContent = "Latest photo: none yet";
   }
   card.appendChild(timestamp);
+
+  if (device.latestPhotoTimestamp) {
+    const localTime = document.createElement("p");
+    localTime.className = "timestamp timestamp-local";
+    localTime.textContent = `Your time: ${formatAbsoluteTime(device.latestPhotoTimestamp)}`;
+    card.appendChild(localTime);
+  }
 
   if (device.description) {
     const desc = document.createElement("p");
@@ -159,7 +178,8 @@ function renderDevices(data) {
     return;
   }
 
-  data.devices.forEach((device) => container.appendChild(buildDeviceCard(device)));
+  const mothboxTimeZone = data.schedule && data.schedule.timezone;
+  data.devices.forEach((device) => container.appendChild(buildDeviceCard(device, mothboxTimeZone)));
 }
 
 function tickRelativeTimes() {
@@ -167,7 +187,7 @@ function tickRelativeTimes() {
   document.querySelectorAll(".timestamp[data-timestamp]").forEach((el) => {
     const iso = el.dataset.timestamp;
     if (!iso) return;
-    el.textContent = `Latest photo: ${formatAbsoluteTime(iso)} (${formatRelativeTime(iso, now)})`;
+    el.textContent = buildMothboxTimeText(iso, el.dataset.tz, now);
   });
 }
 

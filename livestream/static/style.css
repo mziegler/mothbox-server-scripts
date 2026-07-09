@@ -127,6 +127,12 @@ a {
   color: #bbb;
 }
 
+.timestamp-local {
+  margin-top: 0.15rem;
+  font-size: 0.8rem;
+  color: #888;
+}
+
 .description {
   margin: 0.4rem 0 0;
   font-size: 0.85rem;
