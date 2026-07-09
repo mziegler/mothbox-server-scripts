@@ -115,8 +115,8 @@ a {
 .status-starting-up { border-color: #2b5a6b; }
 .status-starting-up .badge, .badge.status-starting-up { background: #16303a; color: #8fd0e6; }
 
-.status-possible-outage { border-color: #c62828; }
-.status-possible-outage .badge, .badge.status-possible-outage { background: #4a1414; color: #ff9b9b; }
+.status-possible-outage { border-color: #8a4a3d; }
+.status-possible-outage .badge, .badge.status-possible-outage { background: #3a2420; color: #d9a08f; }
 
 .status-expected-off { border-color: #3a3a3a; opacity: 0.75; }
 .status-expected-off .badge, .badge.status-expected-off { background: #2a2a2a; color: #aaa; }

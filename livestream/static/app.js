@@ -10,7 +10,7 @@ const TICK_INTERVAL_MS = 20000;
 const STATUS_META = {
   "ok": { label: "Online", className: "status-ok" },
   "starting-up": { label: "Starting up…", className: "status-starting-up" },
-  "possible-outage": { label: "⚠ Possible power outage or technical problem", className: "status-possible-outage" },
+  "possible-outage": { label: "⚠ Mothbox offline (probably a power outage)", className: "status-possible-outage" },
   "expected-off": { label: "Off (per schedule)", className: "status-expected-off" },
   "no-photo-yet": { label: "No photo received yet", className: "status-no-photo-yet" },
 };
