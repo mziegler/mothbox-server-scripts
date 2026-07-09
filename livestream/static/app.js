@@ -245,6 +245,20 @@ function initLightbox() {
     lightboxImg.classList.remove("magnifying");
   }
 
+  // Touch devices get the whole screen to zoom in, rather than the smaller
+  // fit-sized box mouse users see -- entered/exited around each touch
+  // gesture so the page layout is otherwise untouched.
+  function enterFullscreenZoom() {
+    wrap.classList.add("fullscreen-zoom");
+    wrap.style.width = "";
+    wrap.style.height = "";
+  }
+
+  function exitFullscreenZoom() {
+    wrap.classList.remove("fullscreen-zoom");
+    sizeWrapToFit();
+  }
+
   function openLightbox(src, alt) {
     lightbox.classList.remove("hidden");
     lightboxImg.alt = alt;
@@ -260,6 +274,7 @@ function initLightbox() {
   function close() {
     lightbox.classList.add("hidden");
     stopMagnifying();
+    wrap.classList.remove("fullscreen-zoom");
     lightboxImg.src = "";
   }
 
@@ -280,7 +295,10 @@ function initLightbox() {
     "touchstart",
     (e) => {
       const t = e.touches[0];
-      if (t) startMagnifying(t.clientX, t.clientY);
+      if (t) {
+        enterFullscreenZoom();
+        startMagnifying(t.clientX, t.clientY);
+      }
       e.preventDefault();
     },
     { passive: false }
@@ -294,11 +312,19 @@ function initLightbox() {
     },
     { passive: false }
   );
-  wrap.addEventListener("touchend", stopMagnifying);
-  wrap.addEventListener("touchcancel", stopMagnifying);
+  function endTouchZoom() {
+    stopMagnifying();
+    exitFullscreenZoom();
+  }
+  wrap.addEventListener("touchend", endTouchZoom);
+  wrap.addEventListener("touchcancel", endTouchZoom);
 
   window.addEventListener("resize", () => {
-    if (!lightbox.classList.contains("hidden")) {
+    // Skip while a touch zoom has the wrap pinned fullscreen (e.g. an
+    // orientation change mid-touch) -- its CSS is already viewport-relative,
+    // and sizeWrapToFit() would otherwise overwrite it with fit-sized
+    // inline styles that outrank that class.
+    if (!lightbox.classList.contains("hidden") && !wrap.classList.contains("fullscreen-zoom")) {
       stopMagnifying();
       sizeWrapToFit();
     }

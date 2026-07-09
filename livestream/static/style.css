@@ -170,6 +170,18 @@ a {
   max-height: 80vh;
 }
 
+/* Applied only during a touch-driven zoom (see app.js) so mobile users get
+   the full screen to inspect detail in, instead of the smaller fit-sized
+   box -- 100dvh (not 100vh) so mobile browser chrome doesn't clip it. */
+.lightbox-image-wrap.fullscreen-zoom {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+}
+
 .lightbox-image-wrap img {
   display: block;
   width: 100%;
