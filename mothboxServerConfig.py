@@ -71,7 +71,7 @@ CAMERA_TIMEZONE = "America/Lima"   # UTC-5, no DST
 # [COLLECTION_START_HOUR, COLLECTION_END_HOUR).
 COLLECTION_START_HOUR = 18   # 6 PM
 COLLECTION_END_HOUR   = 6    # 6 AM (next morning)
-PHOTO_PULL_POLL_INTERVAL_SECONDS = 60
+PHOTO_PULL_POLL_INTERVAL_SECONDS = 20
 
 # Skip files on the Mothbox that were last modified more recently than this.
 # The camera writes each photo incrementally, so a file that's still being
@@ -94,10 +94,10 @@ PHOTO_PULL_TRANSFER_TIMEOUT_SECONDS = 10 * 60  # 10 minutes
 # How long a daily folder must be unmodified (no photo-pull writes) before the
 # pipeline is allowed to move it to in-progress.  This prevents the race
 # condition where the pipeline moves a folder while the photo-pull daemon is
-# still writing to it.  During the collection window it writes every 60
-# seconds, so the folder is never idle.  After the Mothbox shuts off, photos
-# stop arriving and the folder goes quiet — the pipeline waits this long
-# before processing it.
+# still writing to it.  During the collection window it writes every
+# PHOTO_PULL_POLL_INTERVAL_SECONDS, so the folder is never idle.  After the
+# Mothbox shuts off, photos stop arriving and the folder goes quiet — the
+# pipeline waits this long before processing it.
 FOLDER_MIN_IDLE_MINUTES = 65
 
 
@@ -116,8 +116,9 @@ LATEST_PHOTOS_DIRECTORY_PATH = expanduser("~/mothbox-photos/latest")
 LATEST_PHOTO_EXTENSIONS = {'.jpg', '.jpeg', '.png'}
 
 # How often the dashboard reloads images and the cache TTL images are served with.
-# Keep in sync with the max-age set in livestream/nginx.conf.
-LIVESTREAM_REFRESH_SECONDS = 60
+# Keep in sync with DEFAULT_REFRESH_MS in livestream/static/app.js and the
+# max-age values set in livestream/nginx.conf.
+LIVESTREAM_REFRESH_SECONDS = 20
 
 # Hours (0-23, in CAMERA_TIMEZONE local time) during which the Mothbox hardware
 # is expected to be powered on. Edit this to match your own deployment's power

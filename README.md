@@ -144,9 +144,13 @@ put a CDN cache in front of it so viewer traffic never hits this VM:
    cloud (proxy) turned **on**.
 3. Cloudflare's free plan already caches `.jpg`/`.png` by file extension
    and respects the per-path `Cache-Control` headers set in
-   `livestream/nginx.conf` (60s for photos, 30s for `mothboxes.json`, 5
+   `livestream/nginx.conf` (20s for photos, 10s for `mothboxes.json`, 5
    minutes for the static `index.html`/`style.css`/`app.js`) — no paid
-   plan needed. Optionally add a free **Page Rule**
+   plan needed. Note that by default the free plan only caches by file
+   extension, so `mothboxes.json` isn't cached at Cloudflare's edge at all
+   unless you've added the Page Rule below — if you have, its `max-age=10`
+   still applies, but it's an extra hop of caching worth knowing about.
+   Optionally add a free **Page Rule**
    (`livestream.yourdomain.com/*` → Cache Level: Cache Everything) so
    every path is cached at the edge, not just images by extension;
    origin `Cache-Control` headers still govern each file's TTL.

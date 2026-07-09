@@ -3,7 +3,8 @@
 // dynamic content comes from that one JSON fetch.
 
 const DATA_URL = "data/mothboxes.json";
-const DEFAULT_REFRESH_MS = 60000;
+// Keep in sync with LIVESTREAM_REFRESH_SECONDS in mothboxServerConfig.py.
+const DEFAULT_REFRESH_MS = 20000;
 const TICK_INTERVAL_MS = 20000;
 
 const STATUS_META = {
