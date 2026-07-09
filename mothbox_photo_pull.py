@@ -1,11 +1,13 @@
 """Continuous photo-pull daemon.
 
-Pulls photos from every Mothbox device listed in mothbox-list.csv once per
-PHOTO_PULL_POLL_INTERVAL_SECONDS, but only during the nightly collection
-window defined in mothboxServerConfig.py.  Outside that window the loop
-skips pulling but still regenerates the livestream status data (see
-livestream.py) every iteration, so device schedule/outage status stays
-current around the clock.
+Runs each Mothbox device's rclone transfer as a non-blocking background
+process, so multiple devices' pulls -- including any backlog-clearing,
+which can take minutes to hours over a slow/high-latency link -- proceed
+independently instead of one device blocking another. The public
+latest-photo/dashboard data (see livestream.py) is refreshed on its own
+fixed PHOTO_PULL_POLL_INTERVAL_SECONDS cadence, decoupled from whatever
+any in-flight transfer is doing, so the livestream stays close to
+real-time regardless of backlog size.
 
 Transfers are done with rclone, via the per-device remote named in each
 row's "rcloneRemote" column (set up with `rclone config`). rclone performs
@@ -50,8 +52,12 @@ def in_collection_window() -> bool:
     return hour >= COLLECTION_START_HOUR or hour < COLLECTION_END_HOUR
 
 
-def pull_device(mothbox: dict):
-    """Run a single rclone pull for one Mothbox device."""
+def _start_pull(mothbox: dict):
+    """Launch a single device's rclone pull as a background process.
+
+    Returns (proc, log_fh, start_time); the caller is responsible for
+    reaping it (see _reap_pulls) and closing log_fh once it's done.
+    """
     src = f'{mothbox["rcloneRemote"]}:/home/pi/Desktop/Mothbox/photos'
     dst = os.path.join(
         NEW_UNPROCESSED_PHOTOS_DIRECTORY_PATH,
@@ -70,30 +76,53 @@ def pull_device(mothbox: dict):
         "--timeout", "5m",
         "--contimeout", "30s",
         "--min-age", PHOTO_PULL_MIN_FILE_AGE,
+        # Newest-captured photos first, so during a big backlog the true
+        # latest photo lands locally within the first few transfers instead
+        # of waiting behind the entire rest of the backlog.
+        "--order-by", "modtime,descending",
         "-v",
     ]
-    with open(PHOTO_PULL_LOG_PATH, "a") as log:
-        try:
-            subprocess.run(cmd, stdout=log, stderr=log, timeout=PHOTO_PULL_TRANSFER_TIMEOUT_SECONDS)
-        except subprocess.TimeoutExpired:
-            log.write(
-                f"\n[mothbox_photo_pull] Killed rclone after "
-                f"{PHOTO_PULL_TRANSFER_TIMEOUT_SECONDS}s -- {mothbox['mothboxName']} likely "
-                "went offline mid-transfer. Will retry next poll.\n"
-            )
-            log.flush()
+    log = open(PHOTO_PULL_LOG_PATH, "a")
+    proc = subprocess.Popen(cmd, stdout=log, stderr=log)
+    return proc, log, time.monotonic()
 
-    update_latest_photo(mothbox)
+
+def _reap_pulls(active: dict):
+    """Close out any finished or timed-out pulls, mutating `active` in place."""
+    for mothbox_name in list(active):
+        proc, log, start_time = active[mothbox_name]
+        elapsed = time.monotonic() - start_time
+
+        if proc.poll() is not None:
+            log.close()
+            del active[mothbox_name]
+        elif elapsed > PHOTO_PULL_TRANSFER_TIMEOUT_SECONDS:
+            proc.kill()
+            proc.wait()
+            log.write(
+                f"\n[mothbox_photo_pull] Killed rclone after {elapsed:.0f}s -- "
+                f"{mothbox_name} likely went offline mid-transfer. Will retry next poll.\n"
+            )
+            log.close()
+            del active[mothbox_name]
 
 
 def run():
     mothboxes = load_mothbox_list()
     print(f"Photo-pull daemon started — monitoring {len(mothboxes)} device(s).", flush=True)
+    active = {}
     while True:
+        _reap_pulls(active)
+
         if in_collection_window():
             for mothbox in mothboxes:
-                pull_device(mothbox)
+                if mothbox["mothboxName"] not in active:
+                    active[mothbox["mothboxName"]] = _start_pull(mothbox)
+
+        for mothbox in mothboxes:
+            update_latest_photo(mothbox)
         generate_dashboard_data(mothboxes)
+
         time.sleep(PHOTO_PULL_POLL_INTERVAL_SECONDS)
 
 
