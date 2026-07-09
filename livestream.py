@@ -124,6 +124,19 @@ def _minutes_since_on_transition(now_local: datetime.datetime) -> float:
     return (now_local - hour_start).total_seconds() / 60
 
 
+def _next_on_time(now_local: datetime.datetime) -> datetime.datetime:
+    """Return the next hour boundary (in CAMERA_TIMEZONE) at which the
+    device is expected to be on, searching forward from now_local. Shown on
+    the dashboard as "next scheduled on-time" while a device is off.
+    """
+    candidate = now_local.replace(minute=0, second=0, microsecond=0) + datetime.timedelta(hours=1)
+    for _ in range(24):
+        if candidate.hour in MOTHBOX_ON_HOURS:
+            return candidate
+        candidate += datetime.timedelta(hours=1)
+    return candidate
+
+
 def _image_url(mothbox: dict, latest_dt):
     """Return the image URL for a device's latest photo, relative to the
     static frontend's docroot (nginx serves this directory under /data --
@@ -224,6 +237,7 @@ def generate_dashboard_data(mothboxes):
         "schedule": {
             "onHours": sorted(MOTHBOX_ON_HOURS),
             "timezone": CAMERA_TIMEZONE,
+            "nextOnTime": _next_on_time(now_local).isoformat(),
         },
         "devices": [_device_status(mb, now_local) for mb in mothboxes],
     }

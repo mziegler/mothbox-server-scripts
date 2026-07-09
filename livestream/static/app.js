@@ -23,18 +23,25 @@ async function fetchMothboxData() {
   return res.json();
 }
 
+function pluralize(value, unit) {
+  return `${value} ${unit}${value === 1 ? "" : "s"}`;
+}
+
+// Handles both directions: a past isoString reads "N minutes ago", a future
+// one (e.g. the next scheduled on-time) reads "in N minutes".
 function formatRelativeTime(isoString, now) {
   if (!isoString) return "never";
   const then = new Date(isoString);
   const diffMin = Math.round((now - then) / 60000);
-  if (diffMin < 1) return "just now";
-  if (diffMin === 1) return "1 minute ago";
-  if (diffMin < 60) return `${diffMin} minutes ago`;
-  const diffHr = Math.round(diffMin / 60);
-  if (diffHr === 1) return "1 hour ago";
-  if (diffHr < 24) return `${diffHr} hours ago`;
-  const diffDay = Math.round(diffHr / 24);
-  return diffDay === 1 ? "1 day ago" : `${diffDay} days ago`;
+  const future = diffMin < 0;
+  const absMin = Math.abs(diffMin);
+
+  if (absMin < 1) return "just now";
+  if (absMin < 60) return future ? `in ${pluralize(absMin, "minute")}` : `${pluralize(absMin, "minute")} ago`;
+  const absHr = Math.round(absMin / 60);
+  if (absHr < 24) return future ? `in ${pluralize(absHr, "hour")}` : `${pluralize(absHr, "hour")} ago`;
+  const absDay = Math.round(absHr / 24);
+  return future ? `in ${pluralize(absDay, "day")}` : `${pluralize(absDay, "day")} ago`;
 }
 
 function formatAbsoluteTime(isoString, timeZone) {
@@ -62,7 +69,11 @@ function buildMothboxTimeText(isoString, timeZone, now) {
   return `Latest photo: ${formatAbsoluteTime(isoString, timeZone)} (${formatRelativeTime(isoString, now)})`;
 }
 
-function buildDeviceCard(device, mothboxTimeZone) {
+function buildNextOnText(isoString, timeZone, now) {
+  return `Next scheduled on: ${formatAbsoluteTime(isoString, timeZone)} (${formatRelativeTime(isoString, now)})`;
+}
+
+function buildDeviceCard(device, mothboxTimeZone, nextOnTime) {
   const meta = STATUS_META[device.status] || { label: device.status, className: "" };
 
   const card = document.createElement("div");
@@ -108,6 +119,15 @@ function buildDeviceCard(device, mothboxTimeZone) {
     card.appendChild(localTime);
   }
 
+  if (device.status === "expected-off" && nextOnTime) {
+    const nextOn = document.createElement("p");
+    nextOn.className = "timestamp next-on-time";
+    nextOn.dataset.nextOn = nextOnTime;
+    nextOn.dataset.tz = mothboxTimeZone || "";
+    nextOn.textContent = buildNextOnText(nextOnTime, mothboxTimeZone, new Date());
+    card.appendChild(nextOn);
+  }
+
   if (device.description) {
     const desc = document.createElement("p");
     desc.className = "description";
@@ -138,7 +158,8 @@ function renderDevices(data) {
   }
 
   const mothboxTimeZone = data.schedule && data.schedule.timezone;
-  data.devices.forEach((device) => container.appendChild(buildDeviceCard(device, mothboxTimeZone)));
+  const nextOnTime = data.schedule && data.schedule.nextOnTime;
+  data.devices.forEach((device) => container.appendChild(buildDeviceCard(device, mothboxTimeZone, nextOnTime)));
 }
 
 function tickRelativeTimes() {
@@ -147,6 +168,11 @@ function tickRelativeTimes() {
     const iso = el.dataset.timestamp;
     if (!iso) return;
     el.textContent = buildMothboxTimeText(iso, el.dataset.tz, now);
+  });
+  document.querySelectorAll(".timestamp[data-next-on]").forEach((el) => {
+    const iso = el.dataset.nextOn;
+    if (!iso) return;
+    el.textContent = buildNextOnText(iso, el.dataset.tz, now);
   });
 }
 
