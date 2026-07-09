@@ -1,3 +1,3 @@
 deploymentName,mothboxName,rcloneRemote,friendlyName,description
-Dataset_ManuNet_RestorationOlder_agileCigua_2026-03-30,agileCigua,mothbox-agilecigua,Agile Cigua,
-Dataset_ManuNet_RestorationNewerC_fluidRobin_2026-05-04,fluidRobin,mothbox-fluidrobin,Fluid Robin,
+Dataset_ManuNet_RestorationOlder_agileCigua_2026-03-30,agileCigua,mothbox-agilecigua,3-Year Restoration Area,Mothbox Pro: "agileCigua"
+Dataset_ManuNet_RestorationNewerC_fluidRobin_2026-05-04,fluidRobin,mothbox-fluidrobin,1-Year Restoration Area,Mothbox Pro: "fluidRobin"
