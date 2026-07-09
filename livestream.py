@@ -150,7 +150,35 @@ def _image_url(mothbox: dict, latest_dt):
     return f'data/{mothbox["mothboxName"]}.jpg?t={int(latest_dt.timestamp())}'
 
 
-def _device_status(mothbox: dict, now_local: datetime.datetime) -> dict:
+def _carried_over_timestamp(mothbox: dict, previous_devices: dict):
+    """Recover the last known photo timestamp when _find_newest_photo can no
+    longer see it.
+
+    The AI pipeline moves a device's daily folder out of
+    NEW_UNPROCESSED_PHOTOS_DIRECTORY_PATH once photo-pull has been idle for
+    FOLDER_MIN_IDLE_MINUTES (see photoprocessing/pipeline_schedule_manager.py)
+    -- normally well after the night's last photo, e.g. the next afternoon.
+    From that point on, _find_newest_photo finds nothing for this device,
+    even though the copied photo is still sitting in
+    LATEST_PHOTOS_DIRECTORY_PATH and was perfectly good moments earlier.
+    Falls back to the timestamp already written for this device in the
+    previous mothboxes.json cycle, but only if that photo file is still
+    actually there -- so a device that's never sent a photo at all still
+    correctly reports no-photo-yet rather than carrying forward nothing.
+    """
+    prev_device = previous_devices.get(mothbox["mothboxName"])
+    if not prev_device or not prev_device.get("latestPhotoTimestamp"):
+        return None
+    dest = os.path.join(LATEST_PHOTOS_DIRECTORY_PATH, f'{mothbox["mothboxName"]}.jpg')
+    if not os.path.exists(dest):
+        return None
+    try:
+        return datetime.datetime.fromisoformat(prev_device["latestPhotoTimestamp"])
+    except ValueError:
+        return None
+
+
+def _device_status(mothbox: dict, now_local: datetime.datetime, previous_devices: dict) -> dict:
     """Compute the full status payload for one device, combining its latest
     photo's age with the expected on/off schedule state. A device that's
     expected to be off is never flagged as a problem, however stale its
@@ -162,6 +190,8 @@ def _device_status(mothbox: dict, now_local: datetime.datetime) -> dict:
     """
     newest_path = _find_newest_photo(mothbox)
     latest_dt = _parse_photo_timestamp(newest_path) if newest_path else None
+    if latest_dt is None:
+        latest_dt = _carried_over_timestamp(mothbox, previous_devices)
     expected_state = _expected_state(now_local)
 
     if latest_dt is None:
@@ -188,6 +218,21 @@ def _device_status(mothbox: dict, now_local: datetime.datetime) -> dict:
         "status": status,
         "ageMinutes": round(age_minutes, 1) if age_minutes is not None else None,
     }
+
+
+def _load_previous_devices() -> dict:
+    """Load the previous cycle's mothboxes.json, keyed by mothboxName, so
+    _carried_over_timestamp can recover a device's last known photo
+    timestamp if its source daily folder is no longer visible this cycle.
+    Returns {} if there's no previous file yet or it's unreadable.
+    """
+    path = os.path.join(LATEST_PHOTOS_DIRECTORY_PATH, "mothboxes.json")
+    try:
+        with open(path) as f:
+            previous = json.load(f)
+    except (OSError, ValueError):
+        return {}
+    return {d["mothboxName"]: d for d in previous.get("devices", [])}
 
 
 def _write_json_atomic(data: dict):
@@ -230,6 +275,7 @@ def generate_dashboard_data(mothboxes):
         return
 
     now_local = datetime.datetime.now(tz=_TZ)
+    previous_devices = _load_previous_devices()
     data = {
         "enabled": True,
         "generatedAt": now_local.isoformat(),
@@ -239,6 +285,6 @@ def generate_dashboard_data(mothboxes):
             "timezone": CAMERA_TIMEZONE,
             "nextOnTime": _next_on_time(now_local).isoformat(),
         },
-        "devices": [_device_status(mb, now_local) for mb in mothboxes],
+        "devices": [_device_status(mb, now_local, previous_devices) for mb in mothboxes],
     }
     _write_json_atomic(data)
