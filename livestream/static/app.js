@@ -125,8 +125,10 @@ function buildDeviceCard(device, mothboxTimeZone, nextOnTime) {
     const nextOn = document.createElement("p");
     nextOn.className = "timestamp next-on-time";
     nextOn.dataset.nextOn = nextOnTime;
-    nextOn.dataset.tz = mothboxTimeZone || "";
-    nextOn.textContent = buildNextOnText(nextOnTime, mothboxTimeZone, new Date());
+    // Deliberately omits data-tz -- shown in the viewer's own local zone
+    // (formatAbsoluteTime's default), not the Mothbox's, since "when do I
+    // need to check back" is more useful phrased in the viewer's own time.
+    nextOn.textContent = buildNextOnText(nextOnTime, undefined, new Date());
     card.appendChild(nextOn);
   }
 
