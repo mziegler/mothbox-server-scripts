@@ -196,9 +196,11 @@ async function refreshLoop() {
   }
 }
 
-// Magnifier zoom, in the style of a product-image hover-zoom: cursor (or
-// touch) position over the image directly selects which region is shown at
-// a fixed magnification, via CSS transform-origin -- no click-drag needed.
+// Mouse: a product-image-style hover magnifier -- cursor position over the
+// image directly selects which region is shown, at a fixed magnification,
+// via CSS transform-origin. Touch gets a different interaction instead (see
+// initLightbox below): pinch-to-zoom plus drag-to-pan, since there's no
+// hover to drive a magnifier from.
 const MIN_MAGNIFICATION = 2;
 const MAX_MAGNIFICATION = 4;
 
@@ -259,10 +261,105 @@ function initLightbox() {
     sizeWrapToFit();
   }
 
+  // Pinch-to-zoom + drag-to-pan for touch, as an alternative to the mouse
+  // hover magnifier above -- two fingers pinch to set an arbitrary zoom
+  // level (anchored at the pinch midpoint so that point stays under the
+  // fingers), and once zoomed, one finger drags to pan. Unlike the hover
+  // magnifier, the zoom level persists after fingers lift, so users can let
+  // go and still look at the detail; double-tap zooms to a fixed level, or
+  // back out to fit if already zoomed.
+  const TOUCH_MIN_SCALE = 1;
+  const TOUCH_MAX_SCALE = 8;
+  const DOUBLE_TAP_SCALE = 3;
+  const DOUBLE_TAP_MS = 300;
+  const DOUBLE_TAP_MOVE_PX = 40;
+  const TAP_MOVE_PX = 10;
+
+  let touchScale = 1;
+  let touchX = 0;
+  let touchY = 0;
+  let pinchStart = null; // {dist, scale}
+  let panStart = null; // {x, y, baseX, baseY}
+  let singleTouchStart = null; // {x, y}
+  let gestureHadMultiTouch = false;
+  let lastTapTime = 0;
+  let lastTapPos = { x: 0, y: 0 };
+
+  function touchDistance(a, b) {
+    return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+  }
+
+  function touchMidpoint(a, b) {
+    return { x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 };
+  }
+
+  function applyTouchTransform() {
+    lightboxImg.style.transformOrigin = "center center";
+    lightboxImg.style.transform = `translate(${touchX}px, ${touchY}px) scale(${touchScale})`;
+    lightboxImg.classList.toggle("magnifying", touchScale > 1.01);
+  }
+
+  function clampTouchPan() {
+    // Standard "don't pan past the edges" clamp: once the scaled image is
+    // smaller than the viewport in a dimension, there's nothing to pan
+    // there, so it's forced back to centered (0) in that dimension.
+    const rect = wrap.getBoundingClientRect();
+    const maxX = Math.max(0, (rect.width * touchScale - rect.width) / 2);
+    const maxY = Math.max(0, (rect.height * touchScale - rect.height) / 2);
+    touchX = clamp(touchX, -maxX, maxX);
+    touchY = clamp(touchY, -maxY, maxY);
+  }
+
+  function setTouchZoom(newScale, anchorX, anchorY) {
+    // wrap itself never transforms, so its rect is a stable reference for
+    // converting the anchor point into the image's own (scale-independent)
+    // local coordinates, then back out at the new scale -- keeping that
+    // point fixed under the fingers/tap as the scale changes.
+    const rect = wrap.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    const curCenterX = centerX + touchX;
+    const curCenterY = centerY + touchY;
+    const localX = (anchorX - curCenterX) / touchScale;
+    const localY = (anchorY - curCenterY) / touchScale;
+    touchScale = clamp(newScale, TOUCH_MIN_SCALE, TOUCH_MAX_SCALE);
+    touchX = anchorX - centerX - touchScale * localX;
+    touchY = anchorY - centerY - touchScale * localY;
+    clampTouchPan();
+    applyTouchTransform();
+  }
+
+  function resetTouchZoom() {
+    touchScale = 1;
+    touchX = 0;
+    touchY = 0;
+    applyTouchTransform();
+    exitFullscreenZoom();
+  }
+
+  function handlePossibleDoubleTap(touch) {
+    const now = Date.now();
+    const moved = Math.hypot(touch.clientX - lastTapPos.x, touch.clientY - lastTapPos.y);
+    const isDouble = now - lastTapTime < DOUBLE_TAP_MS && moved < DOUBLE_TAP_MOVE_PX;
+    lastTapTime = isDouble ? 0 : now; // consumed, so a triple-tap doesn't immediately re-trigger
+    lastTapPos = { x: touch.clientX, y: touch.clientY };
+    if (!isDouble) return;
+    if (touchScale > 1.01) {
+      resetTouchZoom();
+    } else {
+      enterFullscreenZoom();
+      setTouchZoom(DOUBLE_TAP_SCALE, touch.clientX, touch.clientY);
+    }
+  }
+
   function openLightbox(src, alt) {
     lightbox.classList.remove("hidden");
     lightboxImg.alt = alt;
     stopMagnifying();
+    touchScale = 1;
+    touchX = 0;
+    touchY = 0;
+    applyTouchTransform();
     const onLoad = () => {
       lightboxImg.removeEventListener("load", onLoad);
       sizeWrapToFit();
@@ -274,6 +371,10 @@ function initLightbox() {
   function close() {
     lightbox.classList.add("hidden");
     stopMagnifying();
+    touchScale = 1;
+    touchX = 0;
+    touchY = 0;
+    applyTouchTransform();
     wrap.classList.remove("fullscreen-zoom");
     lightboxImg.src = "";
   }
@@ -289,35 +390,77 @@ function initLightbox() {
   });
   wrap.addEventListener("mouseleave", stopMagnifying);
 
-  // Touch has no hover, so a finger held on the image drives the same
-  // cursor-position-based magnifier, updating as it moves.
   wrap.addEventListener(
     "touchstart",
     (e) => {
-      const t = e.touches[0];
-      if (t) {
+      if (e.touches.length === 2) {
         enterFullscreenZoom();
-        startMagnifying(t.clientX, t.clientY);
+        pinchStart = { dist: touchDistance(e.touches[0], e.touches[1]), scale: touchScale };
+        panStart = null;
+        gestureHadMultiTouch = true;
+      } else if (e.touches.length === 1) {
+        gestureHadMultiTouch = false;
+        singleTouchStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        pinchStart = null;
+        panStart =
+          touchScale > 1.01
+            ? { x: e.touches[0].clientX, y: e.touches[0].clientY, baseX: touchX, baseY: touchY }
+            : null;
       }
       e.preventDefault();
     },
     { passive: false }
   );
+
   wrap.addEventListener(
     "touchmove",
     (e) => {
-      const t = e.touches[0];
-      if (t) updateMagnifierOrigin(t.clientX, t.clientY);
+      if (e.touches.length === 2 && pinchStart) {
+        gestureHadMultiTouch = true;
+        const dist = touchDistance(e.touches[0], e.touches[1]);
+        const mid = touchMidpoint(e.touches[0], e.touches[1]);
+        setTouchZoom(pinchStart.scale * (dist / pinchStart.dist), mid.x, mid.y);
+      } else if (e.touches.length === 1 && panStart) {
+        touchX = panStart.baseX + (e.touches[0].clientX - panStart.x);
+        touchY = panStart.baseY + (e.touches[0].clientY - panStart.y);
+        clampTouchPan();
+        applyTouchTransform();
+      }
       e.preventDefault();
     },
     { passive: false }
   );
-  function endTouchZoom() {
-    stopMagnifying();
-    exitFullscreenZoom();
+
+  function handleTouchEnd(e) {
+    if (e.touches.length === 1) {
+      // Dropped from two fingers to one -- restart the pan baseline from
+      // here so the image doesn't jump.
+      pinchStart = null;
+      panStart =
+        touchScale > 1.01
+          ? { x: e.touches[0].clientX, y: e.touches[0].clientY, baseX: touchX, baseY: touchY }
+          : null;
+      return;
+    }
+    if (e.touches.length === 0) {
+      const endedTouch = e.changedTouches[0];
+      if (!gestureHadMultiTouch && singleTouchStart && endedTouch) {
+        const moved = Math.hypot(
+          endedTouch.clientX - singleTouchStart.x,
+          endedTouch.clientY - singleTouchStart.y
+        );
+        if (moved < TAP_MOVE_PX) handlePossibleDoubleTap(endedTouch);
+      }
+      pinchStart = null;
+      panStart = null;
+      singleTouchStart = null;
+      // A pinch-out back to (or below) fit snaps fully back; otherwise the
+      // zoom persists after the fingers lift so the user can look at it.
+      if (touchScale <= 1.01) resetTouchZoom();
+    }
   }
-  wrap.addEventListener("touchend", endTouchZoom);
-  wrap.addEventListener("touchcancel", endTouchZoom);
+  wrap.addEventListener("touchend", handleTouchEnd);
+  wrap.addEventListener("touchcancel", handleTouchEnd);
 
   window.addEventListener("resize", () => {
     // Skip while a touch zoom has the wrap pinned fullscreen (e.g. an
