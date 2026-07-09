@@ -112,6 +112,9 @@ a {
 .status-ok { border-color: #2e7d32; }
 .status-ok .badge, .badge.status-ok { background: #1b3d1e; color: #8ee08f; }
 
+.status-starting-up { border-color: #2b5a6b; }
+.status-starting-up .badge, .badge.status-starting-up { background: #16303a; color: #8fd0e6; }
+
 .status-possible-outage { border-color: #c62828; }
 .status-possible-outage .badge, .badge.status-possible-outage { background: #4a1414; color: #ff9b9b; }
 

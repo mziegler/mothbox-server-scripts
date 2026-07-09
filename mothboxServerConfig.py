@@ -132,3 +132,11 @@ MOTHBOX_ON_HOURS = {18, 20, 22, 0, 2, 4}
 # outage or technical problem. Generous slack for rclone retries and the
 # PHOTO_PULL_TRANSFER_TIMEOUT_SECONDS above before crying wolf.
 LIVESTREAM_STALE_MINUTES = 10
+
+# Minutes of slack after a device's scheduled on-transition (see
+# MOTHBOX_ON_HOURS) before a stale photo is flagged as a possible outage.
+# The hardware takes a couple of minutes to boot and connect after power-on,
+# during which the newest photo on file is still the last one from its
+# previous on-cycle -- long enough to trip LIVESTREAM_STALE_MINUTES on its
+# own, which would otherwise misreport a normal boot-up as an outage.
+LIVESTREAM_BOOT_GRACE_MINUTES = 7

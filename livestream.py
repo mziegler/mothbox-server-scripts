@@ -23,6 +23,7 @@ from mothboxServerConfig import (
     LIVESTREAM_REFRESH_SECONDS,
     LIVESTREAM_ENABLED,
     LIVESTREAM_STALE_MINUTES,
+    LIVESTREAM_BOOT_GRACE_MINUTES,
     MOTHBOX_ON_HOURS,
     CAMERA_TIMEZONE,
 )
@@ -106,6 +107,23 @@ def _expected_state(now_local: datetime.datetime) -> str:
     return "on" if now_local.hour in MOTHBOX_ON_HOURS else "off"
 
 
+def _minutes_since_on_transition(now_local: datetime.datetime) -> float:
+    """How many minutes since the current "on" run began.
+
+    Walks back hour by hour while the preceding hour is also in
+    MOTHBOX_ON_HOURS, so a schedule with back-to-back on-hours (e.g. a
+    continuous overnight run rather than alternating) only counts the run's
+    original start as a boot, not every hour boundary within it. Capped at
+    24 steps in case a deployment's MOTHBOX_ON_HOURS never turns off.
+    """
+    hour_start = now_local.replace(minute=0, second=0, microsecond=0)
+    for _ in range(24):
+        if (hour_start - datetime.timedelta(hours=1)).hour not in MOTHBOX_ON_HOURS:
+            break
+        hour_start -= datetime.timedelta(hours=1)
+    return (now_local - hour_start).total_seconds() / 60
+
+
 def _image_url(mothbox: dict, latest_dt):
     """Return the image URL for a device's latest photo, relative to the
     static frontend's docroot (nginx serves this directory under /data --
@@ -124,7 +142,10 @@ def _device_status(mothbox: dict, now_local: datetime.datetime) -> dict:
     photo's age with the expected on/off schedule state. A device that's
     expected to be off is never flagged as a problem, however stale its
     photo -- only a stale photo while expected ON indicates a possible
-    power outage or technical problem.
+    power outage or technical problem, and even then only once it's had
+    LIVESTREAM_BOOT_GRACE_MINUTES to boot and take its first photo of the
+    new on-cycle (its last photo on file, from the previous cycle, is
+    otherwise stale enough on its own to immediately look like an outage).
     """
     newest_path = _find_newest_photo(mothbox)
     latest_dt = _parse_photo_timestamp(newest_path) if newest_path else None
@@ -137,10 +158,12 @@ def _device_status(mothbox: dict, now_local: datetime.datetime) -> dict:
         age_minutes = (now_local - latest_dt).total_seconds() / 60
         if expected_state == "off":
             status = "expected-off"
-        elif age_minutes > LIVESTREAM_STALE_MINUTES:
-            status = "possible-outage"
-        else:
+        elif age_minutes <= LIVESTREAM_STALE_MINUTES:
             status = "ok"
+        elif _minutes_since_on_transition(now_local) < LIVESTREAM_BOOT_GRACE_MINUTES:
+            status = "starting-up"
+        else:
+            status = "possible-outage"
 
     return {
         "mothboxName": mothbox["mothboxName"],
