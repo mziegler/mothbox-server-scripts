@@ -66,7 +66,9 @@ function formatAbsoluteTime(isoString, timeZone) {
 }
 
 function buildMothboxTimeText(isoString, timeZone, now) {
-  return `Latest photo: ${formatAbsoluteTime(isoString, timeZone)} (${formatRelativeTime(isoString, now)})`;
+  // The \n only renders as a line break because .timestamp has
+  // white-space: pre-line in style.css.
+  return `Latest photo: ${formatAbsoluteTime(isoString, timeZone)}\n(${formatRelativeTime(isoString, now)})`;
 }
 
 function buildNextOnText(isoString, timeZone, now) {
