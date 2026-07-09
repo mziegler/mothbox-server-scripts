@@ -196,21 +196,111 @@ async function refreshLoop() {
   }
 }
 
+// Magnifier zoom, in the style of a product-image hover-zoom: cursor (or
+// touch) position over the image directly selects which region is shown at
+// a fixed magnification, via CSS transform-origin -- no click-drag needed.
+const MIN_MAGNIFICATION = 2;
+const MAX_MAGNIFICATION = 4;
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
 function initLightbox() {
   const lightbox = document.getElementById("lightbox");
-  const lightboxImg = lightbox.querySelector("img");
+  const wrap = lightbox.querySelector(".lightbox-image-wrap");
+  const lightboxImg = wrap.querySelector("img");
   const closeBtn = lightbox.querySelector(".lightbox-close");
+  let magnification = MIN_MAGNIFICATION;
+
+  function sizeWrapToFit() {
+    // Mirrors object-fit: contain's own math, but on a fixed-size wrapper
+    // (rather than the img's auto-sized box) so the magnifier's zoomed
+    // content stays clipped to the original photo's on-screen footprint.
+    const naturalW = lightboxImg.naturalWidth || 1;
+    const naturalH = lightboxImg.naturalHeight || 1;
+    const maxW = window.innerWidth * 0.9;
+    const maxH = window.innerHeight * 0.8;
+    const ratio = Math.min(maxW / naturalW, maxH / naturalH, 1);
+    wrap.style.width = `${naturalW * ratio}px`;
+    wrap.style.height = `${naturalH * ratio}px`;
+    magnification = clamp(1 / ratio, MIN_MAGNIFICATION, MAX_MAGNIFICATION);
+  }
+
+  function updateMagnifierOrigin(clientX, clientY) {
+    const rect = wrap.getBoundingClientRect();
+    const nx = clamp((clientX - rect.left) / rect.width, 0, 1);
+    const ny = clamp((clientY - rect.top) / rect.height, 0, 1);
+    lightboxImg.style.transformOrigin = `${nx * 100}% ${ny * 100}%`;
+  }
+
+  function startMagnifying(clientX, clientY) {
+    updateMagnifierOrigin(clientX, clientY);
+    lightboxImg.style.transform = `scale(${magnification})`;
+    lightboxImg.classList.add("magnifying");
+  }
+
+  function stopMagnifying() {
+    lightboxImg.style.transform = "scale(1)";
+    lightboxImg.classList.remove("magnifying");
+  }
+
+  function openLightbox(src, alt) {
+    lightbox.classList.remove("hidden");
+    lightboxImg.alt = alt;
+    stopMagnifying();
+    const onLoad = () => {
+      lightboxImg.removeEventListener("load", onLoad);
+      sizeWrapToFit();
+    };
+    lightboxImg.addEventListener("load", onLoad);
+    lightboxImg.src = src;
+  }
 
   function close() {
     lightbox.classList.add("hidden");
+    stopMagnifying();
     lightboxImg.src = "";
   }
 
   document.getElementById("devices").addEventListener("click", (e) => {
     if (e.target.tagName === "IMG") {
-      lightboxImg.src = e.target.src;
-      lightboxImg.alt = e.target.alt;
-      lightbox.classList.remove("hidden");
+      openLightbox(e.target.src, e.target.alt);
+    }
+  });
+
+  wrap.addEventListener("mousemove", (e) => {
+    startMagnifying(e.clientX, e.clientY);
+  });
+  wrap.addEventListener("mouseleave", stopMagnifying);
+
+  // Touch has no hover, so a finger held on the image drives the same
+  // cursor-position-based magnifier, updating as it moves.
+  wrap.addEventListener(
+    "touchstart",
+    (e) => {
+      const t = e.touches[0];
+      if (t) startMagnifying(t.clientX, t.clientY);
+      e.preventDefault();
+    },
+    { passive: false }
+  );
+  wrap.addEventListener(
+    "touchmove",
+    (e) => {
+      const t = e.touches[0];
+      if (t) updateMagnifierOrigin(t.clientX, t.clientY);
+      e.preventDefault();
+    },
+    { passive: false }
+  );
+  wrap.addEventListener("touchend", stopMagnifying);
+  wrap.addEventListener("touchcancel", stopMagnifying);
+
+  window.addEventListener("resize", () => {
+    if (!lightbox.classList.contains("hidden")) {
+      stopMagnifying();
+      sizeWrapToFit();
     }
   });
 

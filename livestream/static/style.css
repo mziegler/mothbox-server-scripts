@@ -143,8 +143,10 @@ a {
   inset: 0;
   background: rgba(0, 0, 0, 0.92);
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 0.75rem;
   z-index: 100;
 }
 
@@ -152,11 +154,34 @@ a {
   display: none;
 }
 
-.lightbox img {
-  max-width: 95vw;
-  max-height: 95vh;
+.lightbox-hint {
+  color: #aaa;
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+/* Sized to the image's "fit" dimensions via inline style (JS) and clipped,
+   so the magnifier zooms within the original photo's footprint instead of
+   growing past it. */
+.lightbox-image-wrap {
+  position: relative;
+  overflow: hidden;
+  max-width: 90vw;
+  max-height: 80vh;
+}
+
+.lightbox-image-wrap img {
+  display: block;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
-  cursor: zoom-out;
+  cursor: zoom-in;
+  transform: scale(1);
+  transform-origin: center center;
+}
+
+.lightbox-image-wrap img.magnifying {
+  cursor: crosshair;
 }
 
 .lightbox-close {
@@ -169,6 +194,7 @@ a {
   font-size: 2.5rem;
   line-height: 1;
   cursor: pointer;
+  z-index: 101;
 }
 
 @media (max-width: 420px) {
