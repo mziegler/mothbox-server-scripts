@@ -37,11 +37,16 @@ services:
   # stays off network_mode: host and only publishes its own port -- meant to
   # sit behind a CDN cache (e.g. Cloudflare) so public traffic never hits
   # this VM directly.
+  #
+  # Bound to 127.0.0.1 only: Caddy (installed alongside the new Antenna
+  # deployment, see ../manu-antenna-deploy) is now the sole public listener
+  # on 80/443 and reverse-proxies to this port -- see
+  # ../manu-antenna-deploy/Caddyfile.
   livestream:
     image: nginx:1.27-alpine
     restart: always
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     volumes:
       - ./livestream/static:/usr/share/nginx/html:ro
       - /home/mb/mothbox-photos/latest:/usr/share/nginx/html/data:ro
