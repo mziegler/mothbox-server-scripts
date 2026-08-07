@@ -1,5 +1,4 @@
 import datetime
-import os
 import socket
 import sys
 import time
@@ -8,7 +7,6 @@ from pathlib import Path
 
 import photoprocessing.folder_management as fm
 from mothboxServerConfig import (
-    PROCESSED_PHOTOS_DIRECTORY_PATH,
     PIPELINE_IDLE_SLEEP_SECONDS,
     CAMERA_TIMEZONE,
     COLLECTION_END_HOUR,
@@ -81,14 +79,6 @@ def _folder_is_ready_to_process(unprocessed_folder: str) -> bool:
     return True
 
 
-def _completed_path_for(in_progress_folder: str) -> Path:
-    """Compute the completed-directory path for an in-progress folder without moving it."""
-    path = Path(in_progress_folder)
-    deployment_name = path.parent.name
-    daily_name = path.name
-    return Path(os.path.expanduser(PROCESSED_PHOTOS_DIRECTORY_PATH)) / deployment_name / daily_name
-
-
 def _process_pending_folders() -> bool:
     """Process all in-progress and unprocessed folders.
 
@@ -102,9 +92,8 @@ def _process_pending_folders() -> bool:
         print(f"Resuming pipeline for in-progress folder: {daily_folder}", flush=True)
         try:
             run_full_AI_pipeline(daily_folder, overwrite_bot=False)
-            completed_path = _completed_path_for(daily_folder)
             fm.move_daily_folder_to_completed(daily_folder)
-            sync_and_cleanup(str(completed_path))
+            sync_and_cleanup()
         except PipelineCrashError as e:
             print(f"Pipeline crashed on {daily_folder}: {e}", flush=True)
             move_folder_to_crash_holding(daily_folder)
@@ -122,7 +111,6 @@ def _process_pending_folders() -> bool:
         daily_folder = fm.move_daily_folder_to_inprogress(daily_folder)
         try:
             run_full_AI_pipeline(daily_folder, overwrite_bot=False)
-            completed_path = _completed_path_for(daily_folder)
             merged_folder = fm.move_daily_folder_to_completed(daily_folder)
             if merged_folder:
                 print(f"Re-running perceptual clustering for merged folder: {merged_folder}", flush=True)
@@ -130,7 +118,7 @@ def _process_pending_folders() -> bool:
                     run_cluster(merged_folder)
                 except PipelineCrashError as e:
                     print(f"Warning: re-clustering crashed for merged folder {merged_folder}: {e}", flush=True)
-            sync_and_cleanup(str(merged_folder or completed_path))
+            sync_and_cleanup()
         except PipelineCrashError as e:
             print(f"Pipeline crashed on {daily_folder}: {e}", flush=True)
             move_folder_to_crash_holding(daily_folder)

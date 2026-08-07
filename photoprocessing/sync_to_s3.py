@@ -1,5 +1,5 @@
 """
-Upload a completed daily folder to Hetzner Object Storage and remove
+Upload completed daily folders to Hetzner Object Storage and remove
 MARKED-FOR-DELETION files from local disk (without uploading them to S3).
 
 Requires rclone to be configured on the host with a remote named
@@ -19,36 +19,50 @@ from mothboxServerConfig import (
 )
 
 
-def sync_and_cleanup(completed_folder_path: str):
-    """Move a processed daily folder to S3, excluding MARKED-FOR-DELETION files.
+def sync_and_cleanup():
+    """Sync the whole processed-photos root to S3, excluding MARKED-FOR-DELETION files.
 
-    - rclone move transfers kept files to S3 and removes them from local disk.
-    - MARKED-FOR-DELETION files are excluded from the move, then deleted locally.
-      They are never uploaded to S3 (important when versioning is enabled on the bucket).
+    Moves the entire PROCESSED_PHOTOS_DIRECTORY_PATH tree on every call, not
+    just the daily folder that just finished. rclone move only deletes local
+    files it successfully uploads, so any folder left behind by a previous
+    failed sync (a stale AccessDenied, a network blip, S3 downtime) is still
+    sitting on local disk and gets swept up and retried automatically here —
+    no separate backlog-scanning code needed. Safe to call this often: folders
+    that already fully synced are simply absent locally, so there's nothing
+    left for rclone to do for them.
+
+    Does not raise on an rclone failure — logs a warning and returns instead,
+    leaving whatever didn't upload in place for the next call to retry. This
+    function runs inline in the pipeline daemon's main loop (see
+    pipeline_schedule_manager.py); raising here would previously crash the
+    whole daemon on any transient sync failure, silently abandoning whatever
+    folder was in flight and everything queued behind it.
     """
-    path = Path(completed_folder_path)
     base = Path(expanduser(PROCESSED_PHOTOS_DIRECTORY_PATH))
-    rel = path.relative_to(base)
-    
+
     # Prepend optional key prefix to place objects under a specific directory
     prefix = (S3_KEY_PREFIX or "").strip("/")
-    if prefix:
-        remote = f"{S3_REMOTE}:{S3_BUCKET}/{prefix}/{rel}"
-    else:
-        remote = f"{S3_REMOTE}:{S3_BUCKET}/{rel}"
+    remote = f"{S3_REMOTE}:{S3_BUCKET}/{prefix}" if prefix else f"{S3_REMOTE}:{S3_BUCKET}"
 
-    print(f"Moving {path} → {remote} (excluding MARKED-FOR-DELETION files)")
-    subprocess.run(
+    print(f"Syncing {base} → {remote} (excluding MARKED-FOR-DELETION files)")
+    result = subprocess.run(
         [
-            "rclone", "move", str(path), remote,
+            "rclone", "move", str(base), remote,
             "--exclude", "MARKED-FOR-DELETION.*",
             "--transfers", "8",
         ],
-        check=True,
     )
+    if result.returncode != 0:
+        print(
+            f"WARNING: rclone move to S3 failed (exit {result.returncode}). "
+            f"Unsynced folders remain under {base} and will be retried on the next sync."
+        )
+        return
 
-    # Delete MARKED-FOR-DELETION files locally — they were never sent to S3
-    for f in path.rglob("MARKED-FOR-DELETION.*"):
+    # Delete MARKED-FOR-DELETION files locally — they were never sent to S3.
+    # Safe regardless of the move's outcome above: these are excluded from
+    # every sync attempt, so they're unrelated to whatever did or didn't upload.
+    for f in base.rglob("MARKED-FOR-DELETION.*"):
         f.unlink()
 
     # Remove any empty directories left behind under the whole processed root.
@@ -58,7 +72,7 @@ def sync_and_cleanup(completed_folder_path: str):
         check=True,
     )
 
-    print(f"Sync and cleanup complete for {path.name}")
+    print("Sync and cleanup complete")
 
 
 def move_folder_to_crash_holding(in_progress_folder: str):
