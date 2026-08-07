@@ -13,7 +13,14 @@ WorkingDirectory=/home/mb/mothbox-server-scripts
 ExecStart=/snap/bin/docker compose up
 ExecStop=/snap/bin/docker compose down
 
-Restart=on-failure
+
+# Restart=always, not on-failure: docker (snap-installed) auto-refreshes
+# periodically and restarts dockerd, which kills this attached `docker
+# compose up` foreground process with a clean exit (status 0) -- not a
+# crash, so on-failure would never restart it. Confirmed cause of a 4-day
+# outage on 2026-07-24: dockerd restarted, this unit (and the two antenna
+# units) went "inactive (dead)" cleanly and never came back on their own.
+Restart=always
 RestartSec=30
 
 [Install]
